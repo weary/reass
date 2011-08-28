@@ -23,7 +23,7 @@ public:
 	}
 
 	// packet in tcp stream
-	virtual void accept_tcp(packet_t *packet, tcp_stream_t *stream)
+	virtual void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream)
 	{
 		packet->release(); // done with packet
 	}

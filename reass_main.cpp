@@ -9,13 +9,8 @@
 class packet_listener_t;
 
 
-class tcp_stream_t
-{
-};
-
-class udp_stream_t
-{
-};
+class tcp_stream_t;
+class udp_stream_t;
 
 class my_packet_listener_t : public packet_listener_t
 {
@@ -25,7 +20,7 @@ class my_packet_listener_t : public packet_listener_t
 		packet->release(); // done with packet
 	}
 
-	void accept_tcp(packet_t *packet, tcp_stream_t *stream)
+	void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream)
 	{
 		std::cout << "TCP: " << *packet << "\n";
 		packet->release(); // done with packet
@@ -45,12 +40,14 @@ class my_packet_listener_t : public packet_listener_t
 	}
 };
 
-int main(int arcg, char *argv[])
+int main(int argc, char *argv[])
 	try
 {
+	if (argc != 2)
+		throw format_exception("need one argument, a pcap file");
+
 	my_packet_listener_t listener;
-	pcap_reader_t reader("/home/weary/Desktop/testdata.pcap", &listener);
-	//pcap_reader_t reader("/home/weary/Desktop/testdata_large.pcap", &listener);
+	pcap_reader_t reader(argv[1], &listener);
 	reader.read_packets();
 
 

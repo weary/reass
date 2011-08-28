@@ -37,14 +37,17 @@ void packet_t::init(uint64_t packetnr, int linktype, const struct pcap_pkthdr *h
 		parse_ethernet(d_pcap.data(), d_pcap.data() + d_caplen);
 }
 
-void packet_t::add_layer(layer_types type, u_char *begin, u_char *end)
+void packet_t::add_layer(layer_types type, const u_char *begin, const u_char *end)
 {
 	if (d_layercount >= MAX_LAYERS)
 		throw format_exception("max layers reached");
+	if (d_layercount > 0)
+		d_layers[d_layercount-1].last_layer = false;
 	layer_t &lay = d_layers[d_layercount];
 	lay.type = type;
 	lay.begin = begin;
 	lay.end = end;
+	lay.last_layer = true;
 	++d_layercount;
 }
 
@@ -196,7 +199,7 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 				if (1)
 				{
 					char buf[256];
-					sprintf(buf, " seq=%04x ack=%04x", htons(hdr.seq), htons(hdr.ack_seq));
+					sprintf(buf, " seq=%08x ack=%08x", htonl(hdr.seq), htonl(hdr.ack_seq));
 					os << buf;
 				}
 				if (1)

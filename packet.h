@@ -28,9 +28,11 @@ enum layer_types
 struct layer_t
 {
 	layer_types type;
+	bool last_layer;
 	const u_char *begin;
 	const u_char *end;
 	size_t size() const { return end-begin; }
+	layer_t *next() const { return last_layer ? NULL : const_cast<layer_t *>(this)+1; }
 };
 std::ostream &operator <<(std::ostream &os, const layer_t &l);
 
@@ -66,14 +68,17 @@ struct packet_t : public free_list_member_t<packet_t>
 #ifdef DEBUG // for non-debug, baseclass provides
 	void release()
 	{
-		::memset(d_pcap.data(), 'X', d_pcap.size());
-		::memset(d_layers, 'X', MAX_LAYERS*sizeof(layer_t));
+		::memset(d_pcap.data(), 'Y', d_pcap.size());
+		::memset(d_layers, 'Y', MAX_LAYERS*sizeof(layer_t));
+		d_packetnr = (uint64_t)-1;
 		free_list_member_t<packet_t>::release();
 	}
 #endif //DEBUG
 
+	uint64_t packetnr() const { return d_packetnr; }
+
+	void add_layer(layer_types, const u_char *begin, const u_char *end);
 protected:
-	void add_layer(layer_types, u_char *begin, u_char *end);
 
 	uint64_t d_packetnr;
 	struct timeval d_ts;
