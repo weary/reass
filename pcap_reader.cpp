@@ -79,12 +79,23 @@ void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *d
 	}
 }
 
+#ifdef NO_MEMBER_CALLBACK
+void extra_callback_hop(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data)
+{
+	reinterpret_cast<pcap_reader_t *>(user)->handle_packet(hdr, data);
+}
+#endif
+
 void pcap_reader_t::read_packets() // read one bufferful of packets
 {
 	assert(d_pcap);
 
+#ifndef NO_MEMBER_CALLBACK
 	// note: don't try this at home, kids
 	pcap_handler handler = reinterpret_cast<pcap_handler>(&pcap_reader_t::handle_packet);
+#else
+	pcap_handler handler = &extra_callback_hop;
+#endif
 	int r = pcap_dispatch(d_pcap, -1, handler, (u_char *)this);
 	if (r == -1)
 		throw format_exception("Pcap reader failed, %s", pcap_geterr(d_pcap));

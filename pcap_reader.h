@@ -11,6 +11,8 @@
 #include <string>
 #include <pcap.h>
 
+//#define NO_MEMBER_CALLBACK
+
 struct tcp_reassembler_t;
 struct udp_reassembler_t;
 
@@ -23,6 +25,9 @@ struct pcap_reader_t : private free_list_container_t<packet_t>
 
 protected:
 	void handle_packet(const struct pcap_pkthdr *hdr, const u_char *data); // callback from libpcap
+#ifdef NO_MEMBER_CALLBACK
+	friend void extra_callback_hop(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data);
+#endif
 
 	pcap_t *d_pcap;
 	uint64_t d_packetnr;
