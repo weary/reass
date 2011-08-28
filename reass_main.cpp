@@ -36,14 +36,21 @@ class my_packet_listener_t : public packet_listener_t
 		std::cout << "UDP: " << *packet << "\n";
 		packet->free(); // done with packet
 	}
-};
 
+	void accept_error(packet_t *packet, const char *error)
+	{
+		std::cout << "ERROR: " << *packet << ": " << error << "\n";
+		exit(-1);
+		packet->free(); // done with packet
+	}
+};
 
 int main(int arcg, char *argv[])
 	try
 {
 	my_packet_listener_t listener;
-	pcap_reader_t reader("/home/weary/Desktop/testdata_large.pcap", &listener);
+	pcap_reader_t reader("/home/weary/Desktop/testdata.pcap", &listener);
+	//pcap_reader_t reader("/home/weary/Desktop/testdata_large.pcap", &listener);
 	reader.read_packets();
 
 

@@ -66,21 +66,29 @@ void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *d
 		packet = d_free_head;
 	else
 		packet = new packet_t(d_free_head);
-	packet->set(++d_packetnr, d_linktype, hdr, data);
 
-	// reassemble tcp if top-layer is tcp, or tcp+data
-	layer_t *top = packet->layer(-1);
-	layer_t *second = packet->layer(-2);
-	if (!top || !second)
-		d_listener->accept(packet); // less than two layers -> get rid of it
-	else if (top->type == layer_tcp ||
-			(top->type == layer_data && second->type == layer_tcp))
-		d_tcp_reassembler->process(packet);
-	else if (top->type == layer_udp ||
-			(top->type == layer_data && second->type == layer_udp))
-		d_udp_reassembler->process(packet);
-	else // don't know. just pass on packet
-		d_listener->accept(packet);
+	try
+	{
+		packet->set(++d_packetnr, d_linktype, hdr, data);
+
+		// reassemble tcp if top-layer is tcp, or tcp+data
+		layer_t *top = packet->layer(-1);
+		layer_t *second = packet->layer(-2);
+		if (!top || !second)
+			d_listener->accept(packet); // less than two layers -> get rid of it
+		else if (top->type == layer_tcp ||
+				(top->type == layer_data && second->type == layer_tcp))
+			d_tcp_reassembler->process(packet);
+		else if (top->type == layer_udp ||
+				(top->type == layer_data && second->type == layer_udp))
+			d_udp_reassembler->process(packet);
+		else // don't know. just pass on packet
+			d_listener->accept(packet);
+	}
+	catch(const std::exception &e)
+	{
+		d_listener->accept_error(packet, e.what());
+	}
 }
 
 void pcap_reader_t::read_packets() // read one bufferful of packets
