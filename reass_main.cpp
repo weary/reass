@@ -22,26 +22,26 @@ class my_packet_listener_t : public packet_listener_t
 	void accept(packet_t *packet)
 	{
 		std::cout << *packet << "\n";
-		packet->free(); // done with packet
+		packet->release(); // done with packet
 	}
 
 	void accept_tcp(packet_t *packet, tcp_stream_t *stream)
 	{
 		std::cout << "TCP: " << *packet << "\n";
-		packet->free(); // done with packet
+		packet->release(); // done with packet
 	}
 
 	void accept_udp(packet_t *packet, udp_stream_t *stream)
 	{
 		std::cout << "UDP: " << *packet << "\n";
-		packet->free(); // done with packet
+		packet->release(); // done with packet
 	}
 
 	void accept_error(packet_t *packet, const char *error)
 	{
 		std::cout << "ERROR: " << *packet << ": " << error << "\n";
 		exit(-1);
-		packet->free(); // done with packet
+		packet->release(); // done with packet
 	}
 };
 

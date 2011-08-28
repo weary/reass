@@ -28,9 +28,7 @@ pcap_reader_t::pcap_reader_t(
 	const std::string &fname, packet_listener_t *listener) :
 	d_pcap(NULL), d_packetnr(0), d_listener(listener),
 	d_tcp_reassembler(new tcp_reassembler_t(listener)),
-	d_udp_reassembler(new udp_reassembler_t(listener)),
- 	d_free_head(NULL)
-
+	d_udp_reassembler(new udp_reassembler_t(listener))
 {
 	char errbuf[PCAP_ERRBUF_SIZE];
 	d_pcap = pcap_open_offline(fname.c_str(), errbuf);
@@ -48,12 +46,6 @@ pcap_reader_t::~pcap_reader_t()
 		d_pcap = NULL;
 	}
 
-	if (d_free_head)
-	{
-		delete d_free_head;
-		d_free_head = NULL;
-	}
-
 	delete d_tcp_reassembler;
 	delete d_udp_reassembler;
 }
@@ -61,15 +53,11 @@ pcap_reader_t::~pcap_reader_t()
 // called whenever libpcap has a packet
 void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *data)
 {
-	packet_t *packet = NULL;
-	if (d_free_head)
-		packet = d_free_head;
-	else
-		packet = new packet_t(d_free_head);
+	packet_t *packet = claim();
 
 	try
 	{
-		packet->set(++d_packetnr, d_linktype, hdr, data);
+		packet->init(++d_packetnr, d_linktype, hdr, data);
 
 		// reassemble tcp if top-layer is tcp, or tcp+data
 		layer_t *top = packet->layer(-1);

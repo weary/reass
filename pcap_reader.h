@@ -7,13 +7,14 @@
 #define __REASS_PCAP_READER_H__
 
 #include "packet_listener.h"
+#include "free_list.h"
 #include <string>
 #include <pcap.h>
 
 struct tcp_reassembler_t;
 struct udp_reassembler_t;
 
-struct pcap_reader_t
+struct pcap_reader_t : private free_list_container_t<packet_t>
 {
 	pcap_reader_t(const std::string &fname, packet_listener_t *listener);
 	~pcap_reader_t();
@@ -30,8 +31,6 @@ protected:
 
 	tcp_reassembler_t *d_tcp_reassembler;
 	udp_reassembler_t *d_udp_reassembler;
-
-	packet_t *d_free_head;
 };
 
 #endif // __REASS_PCAP_READER_H__

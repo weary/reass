@@ -10,6 +10,7 @@
 #include <fstream>
 #include <vector>
 #include <string.h>
+#include "free_list.h"
 
 #define MAX_LAYERS 8
 
@@ -33,23 +34,13 @@ struct layer_t
 };
 std::ostream &operator <<(std::ostream &os, const layer_t &l);
 
-// note: packet_t's get recycled, never delete, use ->free()
-struct packet_t
+// note: packet_t's get recycled, never delete, use ->release()
+struct packet_t : public free_list_member_t<packet_t>
 {
 	packet_t(packet_t *&free_head);
 	~packet_t();
 
-	void set(uint64_t packetnr, int linktype, const struct pcap_pkthdr *hdr, const u_char *data);
-
-	void free()
-	{
-#ifdef DEBUG
-		::memset(d_pcap.data(), 'X', d_pcap.size());
-		::memset(d_layers, 'X', MAX_LAYERS*sizeof(layer_t));
-#endif //DEBUG
-		d_free_next = d_free_head;
-		d_free_head = this;
-	}
+	void init(uint64_t packetnr, int linktype, const struct pcap_pkthdr *hdr, const u_char *data);
 
 	void parse_ethernet(u_char *begin, u_char *end);
 	void parse_ipv4(u_char *begin, u_char *end);
@@ -57,7 +48,7 @@ struct packet_t
 	void parse_tcp(u_char *begin, u_char *end);
 	void parse_udp(u_char *begin, u_char *end);
 
-	void dump(std::ostream &os) const;
+	void print(std::ostream &os) const;
 
 	layer_t *layer(int n)
  	{
@@ -67,11 +58,22 @@ struct packet_t
 			return (n < (int)d_layercount ? &d_layers[n] : NULL);
 	}
 
+	const layer_t *layer(int n) const
+	{
+		return const_cast<packet_t *>(this)->layer(n);
+	}
+
+#ifdef DEBUG // for non-debug, baseclass provides
+	void release()
+	{
+		::memset(d_pcap.data(), 'X', d_pcap.size());
+		::memset(d_layers, 'X', MAX_LAYERS*sizeof(layer_t));
+		free_list_member_t<packet_t>::release();
+	}
+#endif //DEBUG
+
 protected:
 	void add_layer(layer_types, u_char *begin, u_char *end);
-
-	packet_t *&d_free_head;
-	packet_t *d_free_next;
 
 	uint64_t d_packetnr;
 	struct timeval d_ts;

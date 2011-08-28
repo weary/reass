@@ -12,7 +12,7 @@
 #include "shared/misc.h"
 
 packet_t::packet_t(packet_t *&free_head) :
-	d_free_head(free_head)
+	free_list_member_t<packet_t>(free_head)
 {
 	//printf("packet created\n");
 }
@@ -20,21 +20,10 @@ packet_t::packet_t(packet_t *&free_head) :
 packet_t::~packet_t()
 {
 	//printf("packet destroyed\n");
-	if (d_free_next)
-	{
-		delete d_free_next;
-		d_free_next = NULL;
-	}
 }
 
-void packet_t::set(uint64_t packetnr, int linktype, const struct pcap_pkthdr *hdr, const u_char *data)
+void packet_t::init(uint64_t packetnr, int linktype, const struct pcap_pkthdr *hdr, const u_char *data)
 {
-	if (d_free_head == this) // race condition if a packet got deleted and we are in-place. never delete packet_t's
-	{ // we are in the free list, remove ourselves
-		d_free_head = d_free_next;
-		d_free_next = NULL;
-	}
-
 	d_packetnr = packetnr;
 	d_ts = hdr->ts;
 	d_caplen = hdr->caplen;
@@ -174,7 +163,7 @@ void packet_t::parse_udp(u_char *begin, u_char *end)
 
 std::ostream &operator <<(std::ostream &os, const packet_t &p)
 {
-	p.dump(os);
+	p.print(os);
 	return os;
 }
 
@@ -241,7 +230,7 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 	return os;
 }
 
-void packet_t::dump(std::ostream &os) const
+void packet_t::print(std::ostream &os) const
 {
 	char buf[256];
 	sprintf(buf, "[%4ld %d.%06d %4d", d_packetnr, (unsigned)d_ts.tv_sec, (unsigned)d_ts.tv_usec, d_caplen);
