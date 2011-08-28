@@ -7,37 +7,48 @@
 #define __REASS_FREELIST_H__
 
 #include <boost/noncopyable.hpp>
+#include <assert.h>
+
+//#define NO_REUSE
 
 template<typename T>
 struct free_list_member_t : public boost::noncopyable
 {
 	free_list_member_t(T *&free_head) :
 	 	d_free_head(free_head) // d_free_next does not need to be initialised
- 	{}
+ 	{
+	}
 
 	~free_list_member_t()
 	{
-		if (d_free_next)
+#ifdef NO_REUSE
+		assert(d_free_head != this);
+#endif
+		if (d_free_head == this)
 		{
-			delete d_free_next;
-			d_free_next = NULL;
+			d_free_head = d_free_next;
+			delete d_free_head;
 		}
 	}
 
 	void release()
 	{
+#ifdef NO_REUSE
+		delete static_cast<T *>(this);
+#else
 		d_free_next = d_free_head;
 		d_free_head = static_cast<T *>(this);
+#endif
 	}
 
 private:
 
 	void claim()
 	{
+		assert(this);
 		if (d_free_head == this) // race condition if items got deleted and we are in-place -> never delete
 		{ // we are in the free list, remove ourselves
 			d_free_head = d_free_next;
-			d_free_next = NULL;
 		}
 	}
 
@@ -67,12 +78,16 @@ struct free_list_container_t : public boost::noncopyable
 
 	T *claim()
 	{
+#ifdef NO_REUSE
+		T *r = new T(d_free_head);
+#else
 		T *r = NULL;
 		if (d_free_head)
 			r = d_free_head;
 		else
 			r = new T(d_free_head);
 		r->claim();
+#endif
 		return r;
 	}
 
