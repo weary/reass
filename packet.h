@@ -11,6 +11,8 @@
 #include <vector>
 #include <string.h>
 
+#define MAX_LAYERS 8
+
 enum layer_types
 {
 	layer_ethernet, // ether_header
@@ -43,7 +45,7 @@ struct packet_t
 	{
 #ifdef DEBUG
 		::memset(d_pcap.data(), 'X', d_pcap.size());
-		::memset(d_layers.data(), 'X', d_layers.size()*sizeof(layer_t));
+		::memset(d_layers, 'X', MAX_LAYERS*sizeof(layer_t));
 #endif //DEBUG
 		d_free_next = d_free_head;
 		d_free_head = this;
@@ -75,7 +77,7 @@ protected:
 	struct timeval d_ts;
 	uint32_t d_caplen, d_len, d_layercount;
 	std::vector<u_char> d_pcap; // contains at least caplen bytes
-	std::vector<layer_t> d_layers;
+	layer_t d_layers[MAX_LAYERS];
 };
 
 std::ostream &operator <<(std::ostream &os, const packet_t &p);

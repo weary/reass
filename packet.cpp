@@ -50,8 +50,8 @@ void packet_t::set(uint64_t packetnr, int linktype, const struct pcap_pkthdr *hd
 
 void packet_t::add_layer(layer_types type, u_char *begin, u_char *end)
 {
-	if (d_layercount+1 > d_layers.size())
-		d_layers.resize(d_layercount+2);
+	if (d_layercount >= MAX_LAYERS)
+		throw format_exception("max layers reached");
 	layer_t &lay = d_layers[d_layercount];
 	lay.type = type;
 	lay.begin = begin;
