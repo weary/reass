@@ -1,54 +1,49 @@
-#include "pcap.h"
 #include <string>
 #include <string.h>
-//#include <vector>
 #include <iostream>
 #include "shared/misc.h"
 #include "packet.h"
+#include "packet_listener.h"
+#include "pcap_reader.h"
+
+class packet_listener_t;
 
 
-struct pcap_reader_t
+class tcp_stream_t
 {
-	pcap_reader_t(const std::string &fname) : d_pcap(NULL)
-	{
-		char errbuf[PCAP_ERRBUF_SIZE];
-		d_pcap = pcap_open_offline(fname.c_str(), errbuf);
-		if (!d_pcap)
-			throw format_exception("Could not open pcap '%s', %s", fname.c_str(), errbuf);
+};
 
-		d_linktype = pcap_datalink(d_pcap);
+class udp_stream_t
+{
+};
+
+class my_packet_listener_t : public packet_listener_t
+{
+	void accept(packet_t *packet)
+	{
+		std::cout << *packet << "\n";
+		packet->free(); // done with packet
 	}
 
-	void handle_packet(const struct pcap_pkthdr *hdr, const u_char *data)
+	void accept_tcp(packet_t *packet, tcp_stream_t *stream)
 	{
-		packet_t *packet = new packet_t();
-		packet->set(d_linktype, hdr, data);
-		std::cout << *packet << std::endl;
-		delete packet;
+		std::cout << "TCP: " << *packet << "\n";
+		packet->free(); // done with packet
 	}
 
-	void read_packets() // read one bufferful of packets
+	void accept_udp(packet_t *packet, udp_stream_t *stream)
 	{
-		assert(d_pcap);
-
-		// note: don't try this at home, kids
-		pcap_handler handler = reinterpret_cast<pcap_handler>(&pcap_reader_t::handle_packet);
-		int r = pcap_dispatch(d_pcap, -1, handler, (u_char *)this);
-		if (r == -1)
-			throw format_exception("Pcap reader failed, %s", pcap_geterr(d_pcap));
-		printf("got %d packets in read_packets\n", r);
+		std::cout << "UDP: " << *packet << "\n";
+		packet->free(); // done with packet
 	}
-
-protected:
-	pcap_t *d_pcap;
-	int d_linktype;
 };
 
 
 int main(int arcg, char *argv[])
 	try
 {
-	pcap_reader_t reader("/home/weary/Desktop/testdata.pcap");
+	my_packet_listener_t listener;
+	pcap_reader_t reader("/home/weary/Desktop/testdata_large.pcap", &listener);
 	reader.read_packets();
 
 
