@@ -56,7 +56,6 @@ static bool operator <(const timeval &l, const timeval &r)
 
 static timeval operator -(const timeval &l, const timeval &r)
 {
-	//BORKAGE
 	timeval o;
 	o.tv_sec = l.tv_sec - r.tv_sec;
 	o.tv_usec = l.tv_usec - r.tv_usec;
@@ -108,16 +107,13 @@ static const layer_t *find_tcp_layer(const packet_t *packet)
 
 void tcp_stream_t::set_src_dst_from_packet(const packet_t *packet)
 {
-	int n = -1;
-	const layer_t *tcplay = packet->layer(n);
-	while (tcplay && tcplay->type() != layer_tcp)
-		tcplay = packet->layer(--n);
+	const layer_t *tcplay = find_tcp_layer(packet);
 	if (!tcplay)
 		throw format_exception("expected tcp layer");
 
-	const layer_t *iplay = packet->layer(n);
+	const layer_t *iplay = packet->prev(tcplay);
 	while (iplay && iplay->type() != layer_ipv4 && iplay->type() != layer_ipv6)
-		iplay = packet->layer(--n);
+		iplay = packet->prev(iplay);
 	if (!iplay)
 		throw format_exception("expected ip layer before tcp layer");
 
@@ -225,10 +221,8 @@ void tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 {
 	const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
-	layer_t *next = tcplay->next();
+	const layer_t *next = packet->next(tcplay);
 
-	printf("fin = %d, rst = %d, %s\n",
-			hdr.fin, hdr.rst, to_str(*packet).c_str());
 	if (hdr.fin || hdr.rst)
 	{
 		printf("accepting end\n");
@@ -237,7 +231,7 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 
 	size_t psize = 0;
 	if (next) psize = next->size();
-	assert(!next || (next->last_layer() && next->type() == layer_data)); // assume we are the last
+	assert(!next || (packet->next(next) == NULL && next->type() == layer_data)); // assume we are the last
 	assert(!psize || !hdr.syn); // assume syn-packets will not have content. will break some day
 	seq_nr_t seq = htonl(hdr.seq);
 	int32_t packetloss = seq.d_val - d_next_seq.d_val;
@@ -263,7 +257,7 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 	if (seq > d_next_seq)
 		d_next_seq = seq;
 
-#if 1
+#if 0
 	if (overlap > 0)
 		printf("packet %08ld: accepted packet %08x (%d data including %d overlap), next will be %08x\n",
 				packet->packetnr(), htonl(hdr.seq), (int)psize, overlap, d_next_seq.d_val);

@@ -29,7 +29,7 @@ struct layer_t
 {
 	layer_t() = default;
 	layer_t(const u_char *begin, const u_char *end, layer_type type) :
-		d_begin(begin), d_end(end), d_type(type), d_last_layer(true) {}
+		d_begin(begin), d_end(end), d_type(type) {}
 
 	const u_char *begin() const { return d_begin; }
 	const u_char *end() const { return d_end; }
@@ -37,16 +37,12 @@ struct layer_t
 	layer_type type() const { return d_type; }
 	size_t size() const { return d_end-d_begin; }
 
-	layer_t *next() const { return d_last_layer ? NULL : const_cast<layer_t *>(this)+1; }
-	bool last_layer() const { return d_last_layer; } // returns true if no layer is on top of this one (ie, parsing stopped here)
-
 protected:
 	friend class packet_t;
 
 	const u_char *d_begin;
 	const u_char *d_end;
 	layer_type d_type;
-	bool d_last_layer;
 };
 std::ostream &operator <<(std::ostream &os, const layer_t &l);
 
@@ -66,18 +62,11 @@ struct packet_t : public free_list_member_t<packet_t>
 
 	void print(std::ostream &os) const;
 
-	layer_t *layer(int n)
- 	{
-		if (n < 0)
-			return (-n <= (int)d_layercount ? &d_layers[d_layercount+n] : NULL);
-		else
-			return (n < (int)d_layercount ? &d_layers[n] : NULL);
-	}
+	layer_t *layer(int n);
+	const layer_t *layer(int n) const;
+	const layer_t *next(const layer_t *layer) const; // move away from ethernet
+	const layer_t *prev(const layer_t *layer) const; // move towards ethernet
 
-	const layer_t *layer(int n) const
-	{
-		return const_cast<packet_t *>(this)->layer(n);
-	}
 
 #ifdef DEBUG // for non-debug, baseclass provides
 	void release()
@@ -107,6 +96,31 @@ protected:
 	int d_is_initialised;
 #endif
 };
+
+inline layer_t *packet_t::layer(int n)
+{
+	if (n < 0)
+		return (-n <= (int)d_layercount ? &d_layers[d_layercount+n] : NULL);
+	else
+		return (n < (int)d_layercount ? &d_layers[n] : NULL);
+}
+
+inline const layer_t *packet_t::next(const layer_t *layer) const // move away from ethernet
+{
+	assert(layer >= d_layers && layer <= d_layers + d_layercount - 1);
+	return (layer == d_layers + d_layercount - 1 ? NULL : layer + 1);
+}
+
+inline const layer_t *packet_t::prev(const layer_t *layer) const // move towards ethernet
+{
+	assert(layer >= d_layers && layer <= d_layers + d_layercount - 1);
+	return (layer == d_layers ? NULL : layer - 1);
+}
+
+inline const layer_t *packet_t::layer(int n) const
+{
+	return const_cast<packet_t *>(this)->layer(n);
+}
 
 std::ostream &operator <<(std::ostream &os, const packet_t &p);
 

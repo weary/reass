@@ -45,8 +45,6 @@ void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end
 {
 	if (d_layercount >= MAX_LAYERS)
 		throw format_exception("max layers reached");
-	if (d_layercount > 0)
-		d_layers[d_layercount-1].d_last_layer = false;
 	d_layers[d_layercount] = layer_t(begin, end, type);
 	++d_layercount;
 }
