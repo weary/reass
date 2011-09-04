@@ -158,23 +158,16 @@ void tcp_stream_t::find_relyable_startseq(const tcphdr &hdr)
 	{
 		d_trust_seq = true;
 		d_next_seq = seq;
-		//printf("next_seq set to %08x due to syn flag\n", d_next_seq.d_val);
 	}
 	else
 	{
 		seq_nr_t seq = htonl(hdr.seq);
 		if (d_delayed.empty())
-		{
 			d_next_seq = seq; // first guess at correct seq
-			//printf("next_seq set to %08x (first guess)\n", d_next_seq.d_val);
-		}
 		else
 		{
 			if (seq <= d_next_seq) // wait until sequence numbers are increasing
-			{
 				d_next_seq = seq;
-				//printf("next_seq set to %08x (improved guess)\n", d_next_seq.d_val);
-			}
 			else
 			{
 				d_trust_seq = true;
@@ -324,11 +317,7 @@ tcp_reassembler_t::tcp_reassembler_t(packet_listener_t *listener) :
 
 tcp_reassembler_t::~tcp_reassembler_t()
 {
-	for(stream_set_t::iterator i = d_streams.begin(); i!= d_streams.end(); ++i)
-	{
-		tcp_stream_t *stream = const_cast<tcp_stream_t *>(*i);
-		close_stream(stream);
-	}
+	flush();
 }
 
 tcp_reassembler_t::stream_set_t::iterator
@@ -355,6 +344,7 @@ tcp_reassembler_t::find_stream(packet_t *packet, const layer_t *tcplay)
 	return i;
 }
 
+// global timeouts, no newer packets have been seen (not even in delayed)
 void tcp_reassembler_t::check_timeouts()
 {
 	typedef stream_set_t::nth_index<1>::type idx_t;
@@ -407,5 +397,15 @@ void tcp_reassembler_t::process(packet_t *packet)
 
 	if (now_changed)
 		check_timeouts();
+}
+
+void tcp_reassembler_t::flush()
+{
+	for(stream_set_t::iterator i = d_streams.begin(); i!= d_streams.end(); ++i)
+	{
+		tcp_stream_t *stream = const_cast<tcp_stream_t *>(*i);
+		close_stream(stream);
+	}
+	d_streams.clear();
 }
 

@@ -111,6 +111,7 @@ struct tcp_reassembler_t : private free_list_container_t<tcp_stream_t>
 
 	void process(packet_t *packet);
 
+	void flush();
 protected:
 	packet_listener_t *d_listener;
 	timeval d_now;

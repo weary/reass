@@ -23,6 +23,9 @@ struct pcap_reader_t : private free_list_container_t<packet_t>
 
 	void read_packets(); // read one bufferful of packets
 
+	// FIXME: make interface more flexible.. allow multiple files, live capture, etc
+
+	void flush();
 protected:
 	void handle_packet(const struct pcap_pkthdr *hdr, const u_char *data); // callback from libpcap
 #ifdef NO_MEMBER_CALLBACK

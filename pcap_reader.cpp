@@ -20,6 +20,8 @@ struct udp_reassembler_t
 		d_listener->accept_udp(packet, NULL);
 	}
 
+	void flush() {}
+
 protected:
 	packet_listener_t *d_listener;
 };
@@ -46,8 +48,16 @@ pcap_reader_t::~pcap_reader_t()
 		d_pcap = NULL;
 	}
 
+	flush();
+
 	delete d_tcp_reassembler;
 	delete d_udp_reassembler;
+}
+
+void pcap_reader_t::flush()
+{
+	d_tcp_reassembler->flush();
+	d_udp_reassembler->flush();
 }
 
 // called whenever libpcap has a packet
