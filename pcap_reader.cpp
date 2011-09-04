@@ -64,11 +64,11 @@ void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *d
 		layer_t *second = packet->layer(-2);
 		if (!top || !second)
 			d_listener->accept(packet); // less than two layers -> get rid of it
-		else if (top->type == layer_tcp ||
-				(top->type == layer_data && second->type == layer_tcp))
+		else if (top->type() == layer_tcp ||
+				(top->type() == layer_data && second->type() == layer_tcp))
 			d_tcp_reassembler->process(packet);
-		else if (top->type == layer_udp ||
-				(top->type == layer_data && second->type == layer_udp))
+		else if (top->type() == layer_udp ||
+				(top->type() == layer_data && second->type() == layer_udp))
 			d_udp_reassembler->process(packet);
 		else // don't know. just pass on packet
 			d_listener->accept(packet);

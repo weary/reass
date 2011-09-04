@@ -14,7 +14,7 @@
 
 #define MAX_LAYERS 8
 
-enum layer_types
+enum layer_type
 {
 	layer_ethernet, // ether_header
 	layer_ipv4, // iphdr
@@ -27,12 +27,26 @@ enum layer_types
 
 struct layer_t
 {
-	layer_types type;
-	bool last_layer;
-	const u_char *begin;
-	const u_char *end;
-	size_t size() const { return end-begin; }
-	layer_t *next() const { return last_layer ? NULL : const_cast<layer_t *>(this)+1; }
+	layer_t() = default;
+	layer_t(const u_char *begin, const u_char *end, layer_type type) :
+		d_begin(begin), d_end(end), d_type(type), d_last_layer(true) {}
+
+	const u_char *begin() const { return d_begin; }
+	const u_char *end() const { return d_end; }
+	const u_char *data() const { return begin(); }
+	layer_type type() const { return d_type; }
+	size_t size() const { return d_end-d_begin; }
+
+	layer_t *next() const { return d_last_layer ? NULL : const_cast<layer_t *>(this)+1; }
+	bool last_layer() const { return d_last_layer; } // returns true if no layer is on top of this one (ie, parsing stopped here)
+
+protected:
+	friend class packet_t;
+
+	const u_char *d_begin;
+	const u_char *d_end;
+	layer_type d_type;
+	bool d_last_layer;
 };
 std::ostream &operator <<(std::ostream &os, const layer_t &l);
 
@@ -68,23 +82,30 @@ struct packet_t : public free_list_member_t<packet_t>
 #ifdef DEBUG // for non-debug, baseclass provides
 	void release()
 	{
+		assert(is_initialised()); // only free once
 		::memset(d_pcap.data(), 'Y', d_pcap.size());
 		::memset(d_layers, 'Y', MAX_LAYERS*sizeof(layer_t));
-		d_packetnr = (uint64_t)-1;
+		//d_packetnr = (uint64_t)-1;
+		d_is_initialised = 2;
 		free_list_member_t<packet_t>::release();
 	}
+
+	bool is_initialised() const { return d_is_initialised == 1; }
 #endif //DEBUG
 
 	uint64_t packetnr() const { return d_packetnr; }
+	timeval ts() const { return d_ts; }
 
-	void add_layer(layer_types, const u_char *begin, const u_char *end);
+	void add_layer(layer_type, const u_char *begin, const u_char *end);
 protected:
-
 	uint64_t d_packetnr;
 	struct timeval d_ts;
 	uint32_t d_caplen, d_len, d_layercount;
 	std::vector<u_char> d_pcap; // contains at least caplen bytes
 	layer_t d_layers[MAX_LAYERS];
+#ifdef DEBUG
+	int d_is_initialised;
+#endif
 };
 
 std::ostream &operator <<(std::ostream &os, const packet_t &p);

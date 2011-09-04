@@ -13,13 +13,14 @@
 
 packet_t::packet_t(packet_t *&free_head) :
 	free_list_member_t<packet_t>(free_head)
+#ifdef DEBUG
+	,d_is_initialised(0)
+#endif
 {
-	//printf("packet created\n");
 }
 
 packet_t::~packet_t()
 {
-	//printf("packet destroyed\n");
 }
 
 void packet_t::init(uint64_t packetnr, int linktype, const struct pcap_pkthdr *hdr, const u_char *data)
@@ -29,6 +30,9 @@ void packet_t::init(uint64_t packetnr, int linktype, const struct pcap_pkthdr *h
 	d_caplen = hdr->caplen;
 	d_len = hdr->len;
 	d_layercount = 0;
+#ifdef DEBUG
+	d_is_initialised = 1;
+#endif
 	if (d_pcap.size() < hdr->caplen)
 		d_pcap.resize(hdr->caplen);
 	::memcpy(d_pcap.data(), data, d_caplen);
@@ -37,17 +41,13 @@ void packet_t::init(uint64_t packetnr, int linktype, const struct pcap_pkthdr *h
 		parse_ethernet(d_pcap.data(), d_pcap.data() + d_caplen);
 }
 
-void packet_t::add_layer(layer_types type, const u_char *begin, const u_char *end)
+void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end)
 {
 	if (d_layercount >= MAX_LAYERS)
 		throw format_exception("max layers reached");
 	if (d_layercount > 0)
-		d_layers[d_layercount-1].last_layer = false;
-	layer_t &lay = d_layers[d_layercount];
-	lay.type = type;
-	lay.begin = begin;
-	lay.end = end;
-	lay.last_layer = true;
+		d_layers[d_layercount-1].d_last_layer = false;
+	d_layers[d_layercount] = layer_t(begin, end, type);
 	++d_layercount;
 }
 
@@ -91,6 +91,8 @@ void packet_t::parse_ipv4(u_char *begin, u_char *end)
 		throw format_exception("no content in ip-packet. expected next layer");
 	assert(sizeof(iphdr) <= hdrsize);
 	add_layer(layer_ipv4, begin, end);
+
+	// FIXME: fragments
 
 	u_char *next = begin + hdr.ihl*4;
 	u_char *nend = std::min<u_char *>(end, next + payload);
@@ -178,12 +180,12 @@ static void ipv4addr(std::ostream &os, const void *ip /* network order */)
 
 std::ostream &operator <<(std::ostream &os, const layer_t &l)
 {
-	switch(l.type)
+	switch(l.type())
 	{
 		case(layer_ethernet): os << "eth"; break;
 		case(layer_ipv4):
 			{
-				const iphdr &hdr = reinterpret_cast<const iphdr &>(*l.begin);
+				const iphdr &hdr = reinterpret_cast<const iphdr &>(*l.data());
 				os << "ipv4[";
 				ipv4addr(os, &hdr.saddr);
 				os << "-";
@@ -194,7 +196,7 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 		case(layer_ipv6): os << "ipv6"; break;
 		case(layer_tcp):
 			{
-				const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*l.begin);
+				const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*l.data());
 				os << "tcp[" << htons(hdr.source) << "-" << htons(hdr.dest);
 				if (1)
 				{
@@ -220,7 +222,7 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 			break;
 		case(layer_udp):
 			{
-				const udphdr &hdr = reinterpret_cast<const udphdr &>(*l.begin);
+				const udphdr &hdr = reinterpret_cast<const udphdr &>(*l.data());
 				os << "udp[" << htons(hdr.source) << "-" << htons(hdr.dest) << ']';
 			}
 			break;

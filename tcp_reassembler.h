@@ -9,13 +9,16 @@
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/indexed_by.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 #include <boost/functional/hash/hash.hpp>
 #include <map>
 
 class packet_t;
 class packet_listener_t;
 class layer_t;
+class tcphdr;
 
 struct seq_nr_t
 {
@@ -38,17 +41,26 @@ struct tcp_stream_t : public free_list_member_t<tcp_stream_t>
 	tcp_stream_t(tcp_stream_t *&free_head);
 	~tcp_stream_t();
 
+	void release(); // destructor
+protected: // called from tcp_reassembler_t
+	friend class tcp_reassembler_t;
+
 	void init(packet_listener_t *listener); // will not touch src/dst
-
 	void set_src_dst_from_packet(const packet_t *packet);
+	void add(packet_t *packet, const layer_t *tcplay);
 
-	void add(packet_t *packet);
+	timeval timeout() const { timeval r = d_highest_ts; r.tv_sec += (d_have_accepted_end ? 60 : 600); return r; }
 
-	void release();
+public:
+	void set_userdata(void *userdata) { d_userdata = userdata; }
+	void *userdata() const { return d_userdata; }
+	bool closed() const { return d_have_accepted_end; }
 
 	void print(std::ostream &os) const;
-protected:
+
+protected: // internal
 	void accept_packet(packet_t *p, const layer_t *tcplay);
+	void find_relyable_startseq(const tcphdr &hdr);
 	void check_delayed(bool force = false);
 	void flush();
 
@@ -59,6 +71,11 @@ protected:
 
 	bool d_trust_seq;
 	seq_nr_t d_next_seq;
+	bool d_have_accepted_end;
+
+	void *d_userdata;
+
+	timeval d_highest_ts;
 
 	typedef std::multimap<seq_nr_t, packet_t *> delayed_t;
 	delayed_t d_delayed;
@@ -96,8 +113,7 @@ struct tcp_reassembler_t : private free_list_container_t<tcp_stream_t>
 
 protected:
 	packet_listener_t *d_listener;
-
-	tcp_stream_t *find_stream(packet_t *packet);
+	timeval d_now;
 
 	typedef boost::multi_index_container<
 		tcp_stream_t *,
@@ -106,8 +122,15 @@ protected:
 				boost::multi_index::identity<tcp_stream_t *>,
 				tcp_stream_hash_addresses,
 				tcp_stream_equal_addresses
+			>,
+			boost::multi_index::ordered_non_unique<
+				boost::multi_index::const_mem_fun<tcp_stream_t, timeval, &tcp_stream_t::timeout>
 			>
 		>> stream_set_t;
 
 	stream_set_t d_streams;
+
+	stream_set_t::iterator find_stream(packet_t *packet, const layer_t *tcplay);
+	void check_timeouts();
+	void close_stream(tcp_stream_t *stream);
 };
