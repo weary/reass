@@ -42,7 +42,8 @@ struct tcp_stream_t :
 	public free_list_member_t<tcp_stream_t>,
 	public boost::intrusive::list_base_hook<
 		boost::intrusive::link_mode<
-			boost::intrusive::auto_unlink>>
+			boost::intrusive::auto_unlink>
+	>
 {
 	tcp_stream_t(tcp_stream_t *&free_head);
 	~tcp_stream_t();
@@ -153,7 +154,8 @@ protected:
 			//boost::multi_index::ordered_non_unique<
 				//boost::multi_index::const_mem_fun<tcp_stream_t, timeval, &tcp_stream_t::timeout>
 			//>
-		>> stream_set_t;
+		>
+	> stream_set_t;
 
 	stream_set_t d_streams;
 	typedef timeouts_t<610, 10, tcp_stream_t> tcp_timeouts_t;

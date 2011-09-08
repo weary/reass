@@ -116,7 +116,7 @@ void tcp_stream_t::init(packet_listener_t *listener)
 {
 	d_listener = listener;
 	d_trust_seq = false;
-	d_highest_ts = {0,0};
+	d_highest_ts.tv_sec = 0; d_highest_ts.tv_usec = 0;
 	d_have_accepted_end = false;
 	d_userdata = NULL;
 	d_partner = NULL;

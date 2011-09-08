@@ -10,6 +10,7 @@
 #include <fstream>
 #include <vector>
 #include <string.h>
+#include <stdint.h>
 #include "free_list.h"
 
 #define MAX_LAYERS 8
@@ -27,7 +28,7 @@ enum layer_type
 
 struct layer_t
 {
-	layer_t() = default;
+	layer_t() {}
 	layer_t(const u_char *begin, const u_char *end, layer_type type) :
 		d_begin(begin), d_end(end), d_type(type) {}
 

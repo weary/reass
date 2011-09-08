@@ -21,7 +21,7 @@ const uint64_t basetime = 1314514000;
 template<int MAX_TIMEOUT, int GRANULARITY, typename STREAMTYPE>
 struct timeouts_t
 {
-	typedef boost::intrusive::list<STREAMTYPE, boost::intrusive::constant_time_size<false>> streamlist_t;
+	typedef boost::intrusive::list<STREAMTYPE, boost::intrusive::constant_time_size<false> > streamlist_t;
 
 	timeouts_t() : d_now(0), d_now_in_slots(0) {}
 
