@@ -472,6 +472,9 @@ void tcp_reassembler_t::close_stream(tcp_stream_t *stream)
 	assert(stream);
 	stream->flush();
 	d_listener->accept_tcp(NULL, 0, stream); // stream closed
+	stream_set_t::iterator i = d_streams.find(stream);
+	assert(i!=d_streams.end());
+	d_streams.erase(i);
 	stream->release();
 }
 
