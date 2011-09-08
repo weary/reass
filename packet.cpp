@@ -67,8 +67,9 @@ void packet_t::parse_ethernet(u_char *begin, u_char *end)
 		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
 		case(ETHERTYPE_IPV6): parse_ipv6(next, end); break;
 		case(ETHERTYPE_ARP): /* arp */ break;
+		case(0x88CC): /* LLDP */ break;
 		default:
-			throw format_exception("invalid ether_type %d in ethernet header", hdr.ether_type);
+			throw format_exception("invalid ether_type 0x%x in ethernet header", ntohs(hdr.ether_type));
 	}
 }
 
