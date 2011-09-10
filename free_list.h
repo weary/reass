@@ -98,6 +98,7 @@ struct free_list_container_t : public boost::noncopyable
 			r = new T(d_free_head);
 #ifdef DEBUG
 			++d_count;
+			assert(d_count < 100000);
 #endif
 		}
 		r->claim();
