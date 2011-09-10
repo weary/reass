@@ -28,15 +28,18 @@ enum layer_type
 
 struct layer_t
 {
-	layer_t() {}
-	layer_t(const u_char *begin, const u_char *end, layer_type type) :
-		d_begin(begin), d_end(end), d_type(type) {}
-
 	const u_char *begin() const { return d_begin; }
 	const u_char *end() const { return d_end; }
 	const u_char *data() const { return begin(); }
 	layer_type type() const { return d_type; }
 	size_t size() const { return d_end-d_begin; }
+
+	void set(const u_char *begin, const u_char *end, layer_type type)
+	{
+		d_begin = begin;
+		d_end = end;
+		d_type = type;
+	}
 
 protected:
 	friend class packet_t;
