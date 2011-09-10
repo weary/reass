@@ -242,6 +242,17 @@ void tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 	}
 }
 
+bool tcp_stream_t::is_reasonable_seq(seq_nr_t seq)
+{
+	if (!d_trust_seq) return true; // could be
+
+	const uint32_t cutoff = 1024*1024; // 1MB
+
+	return
+		seq_nr_t(d_next_seq.d_val - cutoff) < seq &&
+		seq < seq_nr_t(d_next_seq.d_val + cutoff);
+}
+
 // find out if this packet is initiator or responder. called from accept_packet, so partner should be set
 void tcp_stream_t::find_direction(packet_t *packet, const layer_t *tcplay)
 {
@@ -406,28 +417,24 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 	r->set_src_dst_from_packet(packet, false);
 	std::pair<stream_set_t::iterator,bool> ituple = d_streams.insert(*r);
 
-	// check for port-reuse
-// FIXME: alleen port-reuse bij sterk afwijkende sequence nummers
-#if 0
-	const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
-	if (i != d_streams.end() && hdr.syn) // FIXME: add check on large difference in sequence numbers
-	{ // port re-used
-		printf("port reuse on %s (=%s)!\n", to_str(*r).c_str(), to_str(**i).c_str());
-		tcp_stream_t *old = *i;
-		if ((*i)->have_partner())
-		{ // close partner
-			tcp_stream_t *partner = old->partner();
-			assert(partner != old);
-			stream_set_t::iterator pi = d_streams.find(partner); // iterator_to somehow does not yield a valid iterator
-			assert(*pi != *i && pi != i);
-			d_streams.erase(pi);
-			close_stream(partner);
+	if (!ituple.second /* insert failed */)
+	{
+		tcp_stream_t *old = &*ituple.first;
+		const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
+		if (!old->is_reasonable_seq(htonl(hdr.seq)))
+		{ // port re-used before timeout elapsed
+			if (old->have_partner())
+			{ // close partner
+				tcp_stream_t *partner = old->partner();
+				assert(partner != old);
+				close_stream(partner);
+			}
+			close_stream(old);
+
+			ituple = d_streams.insert(*r); // try insert again
+			assert(ituple.second);
 		}
-		d_streams.erase(i);
-		close_stream(old);
-		i = d_streams.end();
 	}
-#endif
 
 	if (ituple.second) // new stream was inserted
 	{

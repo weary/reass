@@ -60,6 +60,9 @@ protected: // called from tcp_reassembler_t
 	template<typename TO>
 	void set_timeout(TO &to);
 
+	// return true if it is likely that seq belongs to this stream (to determine port-reuse)
+	bool is_reasonable_seq(seq_nr_t seq);
+
 	static tcp_stream_t *no_partner() { return (tcp_stream_t*)-1; }
 	static tcp_stream_t *partner_destroyed() { return (tcp_stream_t*)-2; }
 
