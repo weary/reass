@@ -7,14 +7,9 @@
 #include "ip_address.h"
 #include "free_list.h"
 #include "timeout.h"
-#include <boost/multi_index_container.hpp>
-#include <boost/multi_index/indexed_by.hpp>
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/identity.hpp>
-#include <boost/multi_index/mem_fun.hpp>
 #include <boost/functional/hash/hash.hpp>
-#include <boost/intrusive/list.hpp>
+#include <boost/intrusive/unordered_set.hpp>
+#include <vector>
 #include <map>
 
 class packet_t;
@@ -37,13 +32,16 @@ inline bool operator <(const seq_nr_t &l, const seq_nr_t &r)
 }
 std::ostream &operator <<(std::ostream &os, const seq_nr_t &s);
 
+typedef boost::intrusive::unordered_set_base_hook<
+		boost::intrusive::link_mode<
+			boost::intrusive::auto_unlink>,
+		boost::intrusive::store_hash<false>
+	> unordered_member_t;
 
 struct tcp_stream_t :
 	public free_list_member_t<tcp_stream_t>,
-	public boost::intrusive::list_base_hook<
-		boost::intrusive::link_mode<
-			boost::intrusive::auto_unlink>
-	>
+	public doublelinked_hook_t,
+	public unordered_member_t
 {
 	tcp_stream_t(tcp_stream_t *&free_head);
 	~tcp_stream_t();
@@ -59,7 +57,6 @@ protected: // called from tcp_reassembler_t
 
 	void add(packet_t *packet, const layer_t *tcplay);
 
-	//timeval timeout() const;
 	template<typename TO>
 	void set_timeout(TO &to);
 
@@ -103,7 +100,7 @@ protected: // internal
 
 	timeval d_highest_ts;
 
-	typedef std::multimap<seq_nr_t, packet_t *> delayed_t;
+	typedef std::multimap<seq_nr_t, packet_t *> delayed_t; // FIXME: intrusive?
 	delayed_t d_delayed;
 
 	friend struct tcp_stream_equal_addresses;
@@ -114,18 +111,18 @@ std::ostream &operator <<(std::ostream &, const tcp_stream_t &);
 
 struct tcp_stream_equal_addresses
 {
-	bool operator()(const tcp_stream_t*l, const tcp_stream_t*r) const
+	bool operator()(const tcp_stream_t &l, const tcp_stream_t &r) const
 	{
-		return l->d_src == r->d_src && l->d_dst == r->d_dst;
+		return l.d_src == r.d_src && l.d_dst == r.d_dst;
 	}
 };
 
 struct tcp_stream_hash_addresses
 {
-	std::size_t operator()(const tcp_stream_t*s) const
+	std::size_t operator()(const tcp_stream_t &s) const
 	{
-		std::size_t r = hash_value(s->d_src);
-		boost::hash_combine(r, s->d_dst);
+		std::size_t r = hash_value(s.d_src);
+		boost::hash_combine(r, s.d_dst);
 		return r;
 	}
 };
@@ -142,21 +139,15 @@ protected:
 	packet_listener_t *d_listener;
 	//timeval d_now;
 
-	typedef boost::multi_index_container<
-		tcp_stream_t *,
-		boost::multi_index::indexed_by<
-			boost::multi_index::hashed_unique<
-				boost::multi_index::identity<tcp_stream_t *>,
-				tcp_stream_hash_addresses,
-				tcp_stream_equal_addresses
-			>
-			//,
-			//boost::multi_index::ordered_non_unique<
-				//boost::multi_index::const_mem_fun<tcp_stream_t, timeval, &tcp_stream_t::timeout>
-			//>
-		>
+	typedef boost::intrusive::unordered_set<
+		tcp_stream_t,
+		boost::intrusive::constant_time_size<false>,
+		boost::intrusive::power_2_buckets<true>,
+		boost::intrusive::equal<tcp_stream_equal_addresses>,
+		boost::intrusive::hash<tcp_stream_hash_addresses>
 	> stream_set_t;
 
+	std::vector<stream_set_t::bucket_type> d_stream_buckets;
 	stream_set_t d_streams;
 	typedef timeouts_t<610, 10, tcp_stream_t> tcp_timeouts_t;
 	tcp_timeouts_t d_timeouts;
@@ -166,19 +157,3 @@ protected:
 	void close_stream(tcp_stream_t *stream);
 };
 
-#if 0
-inline timeval tcp_stream_t::timeout() const
-{
-	bool use_short = d_have_accepted_end;
-	timeval r = d_highest_ts;
-	if (have_partner())
-	{
-		use_short ||= d_partner->d_have_accepted_end;
-		timeval o = d_partner->d_highest_ts;
-		if (o > r)
-			r = o;
-	}
-	r.tv_sec += (use_short ? 60 : 600);
-	return r;
-}
-#endif

@@ -7,17 +7,14 @@
 #include <boost/array.hpp>
 #include "shared/misc.h"
 
-//using namespace boost::intrusive;
-
-#if 0
-struct tcp_stream_t : public list_base_hook<link_mode<safe_link>> // normal_link possible?
-{
-	int d_n;
-};
-#endif
+typedef boost::intrusive::list_base_hook<
+		boost::intrusive::link_mode<
+			boost::intrusive::auto_unlink>
+	> doublelinked_hook_t;
 
 const uint64_t basetime = 1314514000;
 
+// FIXME: minimal granularity is 1 sec, which is very large for 1GB/s and up
 template<int MAX_TIMEOUT, int GRANULARITY, typename STREAMTYPE>
 struct timeouts_t
 {
@@ -74,11 +71,11 @@ inline void timeouts_t<MAX_TIMEOUT, GRANULARITY, STREAMTYPE>::set_timeout(
 	slot = d_now_in_slots + slot;
 	if (slot >= slots) slot -= slots;
 
-	stream1->unlink();
+	static_cast<doublelinked_hook_t *>(stream1)->unlink();
 	d_timeouts[slot].push_back(*stream1);
 	if (stream2)
 	{
-		stream2->unlink();
+		static_cast<doublelinked_hook_t *>(stream2)->unlink();
 		d_timeouts[slot].push_back(*stream2);
 	}
 }

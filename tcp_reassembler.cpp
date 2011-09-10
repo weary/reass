@@ -361,6 +361,9 @@ void tcp_stream_t::release() // destructor
 	::memset(&d_src, 'X', sizeof(d_src));
 	::memset(&d_dst, 'X', sizeof(d_dst));
 #endif
+	doublelinked_hook_t::unlink();
+	unordered_member_t::unlink();
+
 	free_list_member_t<tcp_stream_t>::release();
 }
 
@@ -376,12 +379,17 @@ std::ostream &operator <<(std::ostream &os, const tcp_stream_t &s)
 }
 
 tcp_reassembler_t::tcp_reassembler_t(packet_listener_t *listener) :
-	d_listener(listener)
+	free_list_container_t<tcp_stream_t>(0),
+	d_listener(listener), d_stream_buckets(512), // FIXME: add some checks on the number of streams
+	d_streams(stream_set_t::bucket_traits(d_stream_buckets.data(), d_stream_buckets.size()))
 {
 }
 
 tcp_reassembler_t::~tcp_reassembler_t()
 {
+#if !defined(NO_REUSE) and defined(DEBUG)
+	printf("max %d tcp_stream_t's in use\n", objectcount());
+#endif
 	flush();
 }
 
@@ -396,7 +404,7 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 	auto_release_t<tcp_stream_t> releaser(r);
 
 	r->set_src_dst_from_packet(packet, false);
-	stream_set_t::iterator i = d_streams.find(r);
+	std::pair<stream_set_t::iterator,bool> ituple = d_streams.insert(*r);
 
 	// check for port-reuse
 // FIXME: alleen port-reuse bij sterk afwijkende sequence nummers
@@ -421,10 +429,9 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 	}
 #endif
 
-	if (i == d_streams.end()) // new stream
+	if (ituple.second) // new stream was inserted
 	{
 		r->init(d_listener);
-		i = d_streams.insert(r).first;
 		releaser.do_not_release();
 
 		// find partner
@@ -432,11 +439,11 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 		auto_release_t<tcp_stream_t> releaser(pr);
 
 		pr->set_src_dst_from_packet(packet, true);
-		stream_set_t::iterator pi = d_streams.find(pr);
-		if (pi != d_streams.end() && pi != i)
-			r->set_partner(*pi);
+		stream_set_t::iterator pi = d_streams.find(*pr);
+		if (pi != d_streams.end() && pi != ituple.first)
+			r->set_partner(&*pi);
 	}
-	return i;
+	return ituple.first;
 }
 
 void tcp_stream_t::set_partner(tcp_stream_t *other)
@@ -472,9 +479,6 @@ void tcp_reassembler_t::close_stream(tcp_stream_t *stream)
 	assert(stream);
 	stream->flush();
 	d_listener->accept_tcp(NULL, 0, stream); // stream closed
-	stream_set_t::iterator i = d_streams.find(stream);
-	assert(i!=d_streams.end());
-	d_streams.erase(i);
 	stream->release();
 }
 
@@ -492,18 +496,20 @@ void tcp_reassembler_t::process(packet_t *packet)
 	check_timeouts(packet->ts().tv_sec);
 
 	stream_set_t::iterator it = find_or_create_stream(packet, tcplay);
-	(*it)->add(packet, tcplay);
+	it->add(packet, tcplay);
 
-	(*it)->set_timeout(d_timeouts);
+	it->set_timeout(d_timeouts);
 }
 
 void tcp_reassembler_t::flush()
 {
-	for(stream_set_t::iterator i = d_streams.begin(); i!= d_streams.end(); ++i)
+	// note: this is not a O(n), d_streams begin function is not O(1)
+	while (true)
 	{
-		tcp_stream_t *stream = const_cast<tcp_stream_t *>(*i);
-		close_stream(stream);
+		stream_set_t::iterator first = d_streams.begin();
+		if (first == d_streams.end())
+			break;
+		close_stream(&*first);
 	}
-	d_streams.clear();
 }
 

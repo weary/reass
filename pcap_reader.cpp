@@ -28,6 +28,7 @@ protected:
 
 pcap_reader_t::pcap_reader_t(
 	const std::string &fname, packet_listener_t *listener) :
+	free_list_container_t<packet_t>(0),
 	d_pcap(NULL), d_packetnr(0), d_listener(listener),
 	d_tcp_reassembler(new tcp_reassembler_t(listener)),
 	d_udp_reassembler(new udp_reassembler_t(listener))
@@ -47,6 +48,9 @@ pcap_reader_t::~pcap_reader_t()
 		pcap_close(d_pcap);
 		d_pcap = NULL;
 	}
+#if !defined(NO_REUSE) and defined(DEBUG)
+	printf("max %d packet_t's in use\n", objectcount());
+#endif
 
 	flush();
 

@@ -62,15 +62,24 @@ private:
 template<typename T>
 struct free_list_container_t : public boost::noncopyable
 {
-	free_list_container_t() : d_free_head(NULL)
+	free_list_container_t(unsigned pre_claim = 0) :
+		d_free_head(NULL)
+#if !defined(NO_REUSE) and defined(DEBUG)
+		, d_count(0)
+#endif
 	{
+		for (unsigned n=0; n<pre_claim; ++n)
+		{
+			T *r = new T(d_free_head);
+			r->release();
+		}
 	}
 
 	~free_list_container_t()
 	{
 		if (d_free_head)
 		{
-			delete d_free_head;
+			delete d_free_head; // will recursively delete
 			d_free_head = NULL;
 		}
 	}
@@ -85,14 +94,27 @@ struct free_list_container_t : public boost::noncopyable
 		if (d_free_head)
 			r = d_free_head;
 		else
+		{
 			r = new T(d_free_head);
+#ifdef DEBUG
+			++d_count;
+#endif
+		}
 		r->claim();
 #endif
 		return r;
 	}
 
+#if !defined(NO_REUSE) and defined(DEBUG)
+	// returns number of allocated objects
+	unsigned objectcount() const { return d_count; }
+#endif
+
 protected:
 	T *d_free_head;
+#ifdef DEBUG
+	uint64_t d_count;
+#endif
 };
 
 template<typename T>
