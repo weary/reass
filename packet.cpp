@@ -28,19 +28,18 @@ packet_t::~packet_t()
 void packet_t::init(uint64_t packetnr, int linktype, const struct pcap_pkthdr *hdr, const u_char *data)
 {
 	d_packetnr = packetnr;
-	d_ts = hdr->ts;
-	d_caplen = hdr->caplen;
-	d_len = hdr->len;
+	d_pckthdr = *hdr;
 	d_layercount = 0;
+	bpf_u_int32 caplen = hdr->caplen;
 #ifdef DEBUG
 	d_is_initialised = 1;
 #endif
 	if (d_pcap.size() < hdr->caplen)
 		d_pcap.resize(hdr->caplen);
-	::memcpy(d_pcap.data(), data, d_caplen);
+	::memcpy(d_pcap.data(), data, caplen);
 
 	if (linktype == DLT_EN10MB)
-		parse_ethernet(d_pcap.data(), d_pcap.data() + d_caplen);
+		parse_ethernet(d_pcap.data(), d_pcap.data() + caplen);
 }
 
 void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end)
@@ -239,10 +238,14 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 void packet_t::print(std::ostream &os) const
 {
 	char buf[256];
-	sprintf(buf, "[%4"PRIu64" %d.%06d %4d", d_packetnr, (unsigned)d_ts.tv_sec, (unsigned)d_ts.tv_usec, d_caplen);
+	struct timeval ts = d_pckthdr.ts;
+	bpf_u_int32 len = d_pckthdr.len;
+	bpf_u_int32 caplen = d_pckthdr.caplen;
+	sprintf(buf, "[%4"PRIu64" %d.%06d %4d",
+			d_packetnr, (unsigned)ts.tv_sec, (unsigned)ts.tv_usec, caplen);
 	os << buf;
-	if (d_caplen != d_len)
-		os << '/' << d_len;
+	if (caplen != len)
+		os << '/' << len;
 	os << "] { ";
 	for (unsigned n=0; n<d_layercount; ++n)
 		os << d_layers[n] << ' ';

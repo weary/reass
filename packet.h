@@ -87,13 +87,16 @@ struct packet_t : public free_list_member_t<packet_t>
 #endif //DEBUG
 
 	uint64_t packetnr() const { return d_packetnr; }
-	timeval ts() const { return d_ts; }
+	timeval ts() const { return d_pckthdr.ts; }
+
+	const u_char *data() const { return d_pcap.data(); }
+	const pcap_pkthdr &pckthdr() const { return d_pckthdr; }
 
 	void add_layer(layer_type, const u_char *begin, const u_char *end);
 protected:
 	uint64_t d_packetnr;
-	struct timeval d_ts;
-	uint32_t d_caplen, d_len, d_layercount;
+	struct pcap_pkthdr d_pckthdr; // contains ts/caplen/len
+	uint32_t d_layercount;
 	std::vector<u_char> d_pcap; // contains at least caplen bytes
 	layer_t d_layers[MAX_LAYERS];
 #ifdef DEBUG

@@ -2,6 +2,7 @@
 #include "packet.h"
 #include "packet_listener.h"
 #include "pcap_reader.h"
+#include "pcap_writer.h"
 #include "tcp_reassembler.h"
 #include <string>
 #include <string.h>
@@ -12,15 +13,32 @@ class packet_listener_t;
 
 class my_packet_listener_t : public packet_listener_t
 {
+public:
+	pcap_writer_t *d_writer;
+	my_packet_listener_t() : d_writer(NULL) {}
+	~my_packet_listener_t() { delete d_writer; d_writer = NULL; }
+
+	void open_output(const std::string &fname, int linktype, int snaplen)
+	{
+		delete d_writer;
+		d_writer = new pcap_writer_t(fname, linktype, snaplen);
+		std::cout << "writing to '" << fname << "'\n";
+	}
+
 	void accept(packet_t *packet)
 	{
+		assert(packet);
+		(*d_writer) << packet;
 		packet->release(); // done with packet
 	}
 
 	void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream)
 	{
 		if (packet)
+		{
+			(*d_writer) << packet;
 			packet->release(); // done with packet
+		}
 	}
 
 	void accept_udp(packet_t *packet, udp_stream_t *stream)
@@ -44,6 +62,7 @@ int main(int argc, char *argv[])
 
 	my_packet_listener_t listener;
 	pcap_reader_t reader(argv[1], &listener);
+	listener.open_output("blub.pcap", reader.linktype(), reader.snaplen());
 	reader.read_packets();
 
 

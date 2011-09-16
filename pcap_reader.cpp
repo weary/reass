@@ -43,16 +43,17 @@ pcap_reader_t::pcap_reader_t(
 
 pcap_reader_t::~pcap_reader_t()
 {
+	flush();
+
 	if (d_pcap)
 	{
 		pcap_close(d_pcap);
 		d_pcap = NULL;
 	}
+	printf("saw %ld packets\n", d_packetnr);
 #if !defined(NO_REUSE) and defined(DEBUG)
 	printf("max %d packet_t's in use\n", objectcount());
 #endif
-
-	flush();
 
 	delete d_tcp_reassembler;
 	delete d_udp_reassembler;
