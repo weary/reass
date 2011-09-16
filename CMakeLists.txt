@@ -32,7 +32,7 @@ link_directories(${Boost_LIBRARY_DIRS})
 
 file(GLOB ALLCPP "*.cpp")
 add_executable(reass ${ALLCPP} shared/misc.cpp)
-target_link_libraries(reass pcap)
+target_link_libraries(reass pcap ssl)
 #target_link_libraries(reass libmisc.a)
 
 #add_executable(blob test.cpp)

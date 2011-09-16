@@ -7,9 +7,64 @@
 #include <string>
 #include <string.h>
 #include <iostream>
+#include </usr/include/openssl/sha.h>
 
 class packet_listener_t;
 
+std::string to_hex(const uint8_t *buf, int size)
+{
+	std::string r;
+	while (size)
+	{
+		char locbuf[3];
+		sprintf(locbuf, "%02x", *buf);
+		r = r + locbuf;
+		--size; ++buf;
+	}
+	return r;
+}
+
+struct stream_t
+{
+	stream_t(tcp_stream_t *stream) :
+		d_stream(stream),
+		d_key(to_str(*stream))
+	{
+		SHA1_Init(&d_shactx);
+	}
+
+	~stream_t()
+	{
+	}
+
+	void accept_tcp(packet_t *packet, int packetloss)
+	{
+		if (packet)
+		{
+			layer_t *toplayer = packet->layer(-1);
+			if (!toplayer || toplayer->type() != layer_data)
+			{
+				//std::cout << "TCP " << d_key << " got empty packet\n";
+			}
+			else
+			{
+				SHA1_Update(&d_shactx, toplayer->begin(), toplayer->size());
+			}
+			packet->release();
+		}
+		else
+		{
+			//std::cout << "TCP " << d_key << " finally closed, got " << d_data.size() << " bytes data\n";
+			uint8_t buf[SHA_DIGEST_LENGTH];
+			SHA1_Final(buf, &d_shactx);
+			printf("%s %s\n", to_hex(buf, SHA_DIGEST_LENGTH).c_str(), d_key.c_str());
+		}
+	}
+
+	tcp_stream_t *d_stream; // note, not valid after accept_tcp(NULL, ..) has been called
+	SHA_CTX d_shactx;
+	std::string d_key;
+};
 
 class my_packet_listener_t : public packet_listener_t
 {
@@ -35,10 +90,17 @@ public:
 	void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream)
 	{
 		if (packet)
-		{
 			(*d_writer) << packet;
-			packet->release(); // done with packet
+		stream_t *user = reinterpret_cast<stream_t *>(stream->userdata());
+		if (!user)
+		{
+			user = new stream_t(stream);
+			stream->set_userdata(user);
 		}
+		assert(user);
+		user->accept_tcp(packet, packetloss);
+		if (!packet)
+			delete user;
 	}
 
 	void accept_udp(packet_t *packet, udp_stream_t *stream)
