@@ -24,17 +24,20 @@ else()
 endif()
 
 
-
-
 include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
+add_library(reass
+		ip_address.cpp
+		packet.cpp
+		pcap_reader.cpp
+		tcp_reassembler.cpp
+		shared/misc.cpp
+		)
+target_link_libraries(reass pcap)
 
-file(GLOB ALLCPP "*.cpp")
-add_executable(reass ${ALLCPP} shared/misc.cpp)
-target_link_libraries(reass pcap ssl)
-#target_link_libraries(reass libmisc.a)
 
-#add_executable(blob test.cpp)
+add_executable(reass_main reass_main.cpp)
+target_link_libraries(reass_main reass ssl)
 
 
