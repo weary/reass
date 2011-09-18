@@ -16,6 +16,11 @@ class packet_listener_t
 public:
 	virtual ~packet_listener_t() {}
 
+	// called when a new pcap file is opened or when live capture is started
+	// name is the device name (for live capture) or pcap-filename
+	virtual void begin_capture(const std::string &name, int linktype, int snaplen)
+	{}
+
 	// packet without known stream (ie, not tcp or udp)
 	virtual void accept(packet_t *packet)
 	{

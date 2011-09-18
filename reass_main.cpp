@@ -8,6 +8,7 @@
 #include <string.h>
 #include <iostream>
 #include </usr/include/openssl/sha.h>
+#include <boost/foreach.hpp>
 
 class packet_listener_t;
 
@@ -73,8 +74,10 @@ public:
 	my_packet_listener_t() : d_writer(NULL) {}
 	~my_packet_listener_t() { delete d_writer; d_writer = NULL; }
 
-	void open_output(const std::string &fname, int linktype, int snaplen)
+	void begin_capture(const std::string &name, int linktype, int snaplen)
 	{
+		std::string bname = basename(name.c_str());
+		std::string fname = "writer_" + bname;
 		delete d_writer;
 		d_writer = new pcap_writer_t(fname, linktype, snaplen);
 		std::cout << "writing to '" << fname << "'\n";
@@ -119,15 +122,43 @@ public:
 int main(int argc, char *argv[])
 	try
 {
-	if (argc != 2)
-		throw format_exception("need one argument, a pcap file");
+	std::vector<std::string> positional;
+	bool live = false;
+	std::string filter;
+	for (int n=1; n<argc; ++n)
+	{
+		std::string arg = argv[n];
+		bool havenext = n+1 < argc;
+		if (havenext && (arg == "--bpf" || arg == "--filter"))
+		{ filter = argv[n+1]; ++n; continue; }
+		else if (arg == "--live")
+		{ live = true; continue; }
+		else if (arg == "-h" or arg == "--help")
+		{
+			printf("%s [--live <device>] [--bpf <bpf>] [pcaps]\n", basename(argv[0]));
+			return -1;
+		}
+		else positional.push_back(arg);
+	}
+	if (live && positional.size()>1)
+		throw format_exception("can only do live capture on one device (use 'any' for all)");
+	if (!live && positional.empty())
+		throw format_exception("need at least one pcap file");
 
 	my_packet_listener_t listener;
-	pcap_reader_t reader(argv[1], &listener);
-	listener.open_output("blub.pcap", reader.linktype(), reader.snaplen());
-	reader.read_packets();
-
-
+	pcap_reader_t reader(&listener);
+	if (!live)
+		BOOST_FOREACH(const std::string &file, positional)
+			reader.read_file(file, filter);
+	else
+	{
+		std::string device = "any";
+		if (!positional.empty())
+			device = positional[0];
+		reader.open_live_capture(device, true, filter);
+		while (1)
+			reader.read_packets();
+	}
 }
 catch(const std::exception &e)
 {

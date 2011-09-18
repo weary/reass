@@ -137,6 +137,8 @@ struct tcp_reassembler_t : private free_list_container_t<tcp_stream_t>
 
 	void process(packet_t *packet);
 
+	void set_listener(packet_listener_t *listener) { d_listener = listener; }
+
 	void flush();
 protected:
 	packet_listener_t *d_listener;

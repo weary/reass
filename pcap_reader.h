@@ -18,14 +18,20 @@ struct udp_reassembler_t;
 
 struct pcap_reader_t : private free_list_container_t<packet_t>
 {
-	pcap_reader_t(const std::string &fname, packet_listener_t *listener);
+	pcap_reader_t(packet_listener_t *listener = NULL);
 	~pcap_reader_t();
 
+	void read_file(const std::string &fname, const std::string &bpf = std::string());
+
+	void open_live_capture(const std::string &device, bool promiscuous, const std::string &bpf = std::string());
+	void close_live_capture();
 	void read_packets(); // read one bufferful of packets
 
-	// FIXME: make interface more flexible.. allow multiple files, live capture, etc
-
+	void set_listener(packet_listener_t *listener);
 	void flush();
+
+	void enable_tcp_reassembly(bool en); // enabled by default
+	void enable_udp_reassembly(bool en); // enabled by default
 
 	int linktype() const { return d_linktype; }
 	int snaplen() const { return pcap_snapshot(d_pcap); }
@@ -35,7 +41,10 @@ protected:
 	friend void extra_callback_hop(u_char *user, const struct pcap_pkthdr *hdr, const u_char *data);
 #endif
 
+	void set_bpf(const std::string &bpf);
+
 	pcap_t *d_pcap;
+	bpf_program d_bpf;
 	uint64_t d_packetnr;
 	int d_linktype;
 	packet_listener_t *d_listener;
