@@ -119,6 +119,11 @@ public:
 	}
 };
 
+void printhelp(const char *argv0)
+{
+	printf("%s [--live <device>] [--bpf <bpf>] [pcaps]\n", basename(argv0));
+}
+
 int main(int argc, char *argv[])
 	try
 {
@@ -130,12 +135,12 @@ int main(int argc, char *argv[])
 		std::string arg = argv[n];
 		bool havenext = n+1 < argc;
 		if (havenext && (arg == "--bpf" || arg == "--filter"))
-		{ filter = argv[n+1]; ++n; continue; }
+		{ filter = argv[n+1]; ++n; }
 		else if (arg == "--live")
-		{ live = true; continue; }
+			live = true;
 		else if (arg == "-h" or arg == "--help")
 		{
-			printf("%s [--live <device>] [--bpf <bpf>] [pcaps]\n", basename(argv[0]));
+			printhelp(argv[0]);
 			return -1;
 		}
 		else positional.push_back(arg);

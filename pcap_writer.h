@@ -7,6 +7,7 @@
 #define __REASS_PCAP_WRITER_H__
 
 #include <boost/noncopyable.hpp>
+#include "shared/misc.h"
 
 struct pcap_writer_t : public boost::noncopyable
 {

@@ -6,6 +6,8 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+
 
 std::string sformat(const char *fmt, ...)
 {
@@ -129,3 +131,11 @@ std::string make_hexdump(const char *buf_, int size)
 	return result;
 }
 
+off_t filesize(int handle)
+{
+	struct stat st;
+	int r = fstat(handle, &st);
+	if (r != 0)
+		unix_die("stat");
+	return st.st_size;
+}

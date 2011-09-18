@@ -150,5 +150,6 @@ std::string make_hexdump(const char *buf_, int size);
 inline std::string make_hexdump(const std::string &s_) { return make_hexdump(s_.data(), s_.size()); }
 
 
+off_t filesize(int handle);
 
 #endif // __SHARED_MISC_H__
