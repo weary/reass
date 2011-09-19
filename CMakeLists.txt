@@ -40,5 +40,5 @@ target_link_libraries(reass pcap)
 add_executable(reass_main reass_main.cpp)
 target_link_libraries(reass_main reass ssl)
 
-add_executable(pcap_interactive_reorder reorder_main.cpp)
-target_link_libraries(pcap_interactive_reorder reass)
+add_executable(pcap_manual_reorder reorder_main.cpp)
+target_link_libraries(pcap_manual_reorder reass)
