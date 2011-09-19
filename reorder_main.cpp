@@ -4,9 +4,9 @@
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include "boost/scope_exit.hpp"
+#include <boost/algorithm/string/join.hpp>
 #include <stdexcept>
 #include <sys/mman.h>
-
 
 static void writeline(int handle, const std::string &line)
 {
@@ -145,6 +145,8 @@ void write_pcap(
 void printhelp(const char *argv0)
 {
 	printf("%s [--interactive,-i or --generate,-g <orderfile> or --parse,-p <orderfile>\n", basename(argv0));
+	printf("\n use --generate to create a textfile with all packetnumbers, edit it with your editor and create a re-arranged pcap with --parse\n");
+	printf("or use --interactive to do all at once\n");
 }
 
 int main(int argc, char *argv[])
@@ -192,9 +194,9 @@ int main(int argc, char *argv[])
 		throw format_exception("need at least one pcap file");
 	if (mode == mode_unknown)
 		throw std::runtime_error("specify one of -i, -g or -p");
-	if (mode == mode_parse && !outfile.empty())
-		throw std::runtime_error("-o option is invalid in parse mode");
-	if (mode != mode_parse && outfile.empty())
+	if (mode == mode_generate && !outfile.empty())
+		throw std::runtime_error("-o option is invalid in generate mode");
+	if (mode != mode_generate && outfile.empty())
 		throw std::runtime_error("specify -o for output pcap");
 	if (mode == mode_interactive && !getenv("EDITOR"))
 		throw std::runtime_error("$EDITOR is not set in environment");
@@ -223,7 +225,19 @@ int main(int argc, char *argv[])
 				unix_die("opening file '" + orderfile + "'");
 		}
 
+		writeline(handle, "# rearrange/copy/delete lines as needed\n");
+		std::string cmdline;
+		if (mode == mode_interactive)
+			writeline(handle, "# new pcap will be generated after you save-and-exit this editor\n");
+		else
+		{
+			cmdline = std::string(basename(argv[0])) + " " + boost::algorithm::join(positional, " ") + " -p " + orderfile + " -o <output>.pcap";
+			writeline(handle, "# to generate a re-ordered pcap: " + cmdline + "\n");
+		}
 		write_packetlines(handle, packets);
+
+		if (mode == mode_generate)
+			printf("\n'%s' written, now adjust it with your favourite editor. when done, use this to generate your pcap:\n\n%s\n\n", orderfile.c_str(), cmdline.c_str());
 	}
 
 	if (mode == mode_interactive)
@@ -245,6 +259,7 @@ int main(int argc, char *argv[])
 		}
 		std::vector<uint64_t> pnrs = parse_packetnrs(handle);
 		write_pcap(outfile, linktype, snaplen, packets, pnrs);
+		printf("\nall done\n\n");
 	}
 
 	::close(handle);
