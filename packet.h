@@ -56,13 +56,15 @@ struct packet_t : public free_list_member_t<packet_t>
 	packet_t(packet_t *&free_head);
 	~packet_t();
 
-	void init(uint64_t packetnr, int linktype, const struct pcap_pkthdr *hdr, const u_char *data);
+	void init(uint64_t packetnr, int linktype,
+			const struct pcap_pkthdr *hdr, const u_char *data,
+			bool *have_copied_data = NULL);
 
-	void parse_ethernet(u_char *begin, u_char *end);
-	void parse_ipv4(u_char *begin, u_char *end);
-	void parse_ipv6(u_char *begin, u_char *end);
-	void parse_tcp(u_char *begin, u_char *end);
-	void parse_udp(u_char *begin, u_char *end);
+	void parse_ethernet(const u_char *begin, const u_char *end);
+	void parse_ipv4(const u_char *begin, const u_char *end);
+	void parse_ipv6(const u_char *begin, const u_char *end);
+	void parse_tcp(const u_char *begin, const u_char *end);
+	void parse_udp(const u_char *begin, const u_char *end);
 
 	void print(std::ostream &os) const;
 
@@ -72,32 +74,45 @@ struct packet_t : public free_list_member_t<packet_t>
 	const layer_t *prev(const layer_t *layer) const; // move towards ethernet
 
 
-#ifdef DEBUG // for non-debug, baseclass provides
 	void release()
 	{
+		if (d_still_must_copy_data)
+			*d_still_must_copy_data = false;
+#ifdef DEBUG
 		assert(is_initialised()); // only free once
-		::memset(d_pcap.data(), 'Y', d_pcap.size());
+		::memset(d_pcap_buf, 'Y', d_pcap_bufsize);
 		::memset(d_layers, 'Y', MAX_LAYERS*sizeof(layer_t));
 		//d_packetnr = (uint64_t)-1;
 		d_is_initialised = 2;
+#endif //DEBUG
 		free_list_member_t<packet_t>::release();
 	}
 
+#ifdef DEBUG
 	bool is_initialised() const { return d_is_initialised == 1; }
 #endif //DEBUG
 
 	uint64_t packetnr() const { return d_packetnr; }
 	timeval ts() const { return d_pckthdr.ts; }
 
-	const u_char *data() const { return d_pcap.data(); }
+	const u_char *data() const { return d_pcap; }
 	const pcap_pkthdr &pckthdr() const { return d_pckthdr; }
+
+	void copy_data();
 
 	void add_layer(layer_type, const u_char *begin, const u_char *end);
 protected:
 	uint64_t d_packetnr;
 	struct pcap_pkthdr d_pckthdr; // contains ts/caplen/len
+
+	u_char *d_pcap_buf;
+	const u_char *d_pcap; // points to the data, either to d_pcap_buf, or to external buffer
+	uint32_t d_pcap_bufsize; // number of allocated bytes in d_pcap_buf
+	uint32_t d_pcap_size; // at least caplen, number of valid bytes at *d_pcap
+
+	bool *d_still_must_copy_data;
+
 	uint32_t d_layercount;
-	std::vector<u_char> d_pcap; // contains at least caplen bytes
 	layer_t d_layers[MAX_LAYERS];
 #ifdef DEBUG
 	int d_is_initialised;

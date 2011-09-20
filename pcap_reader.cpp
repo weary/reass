@@ -156,9 +156,10 @@ void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *d
 {
 	packet_t *packet = claim();
 
+	bool must_copy = true;
 	try
 	{
-		packet->init(++d_packetnr, d_linktype, hdr, data);
+		packet->init(++d_packetnr, d_linktype, hdr, data, &must_copy);
 
 		// reassemble tcp if top-layer is tcp, or tcp+data
 		layer_t *top = packet->layer(-1);
@@ -180,6 +181,8 @@ void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *d
 	{
 		d_listener->accept_error(packet, e.what());
 	}
+	if (must_copy)
+		packet->copy_data();
 }
 
 #ifdef NO_MEMBER_CALLBACK

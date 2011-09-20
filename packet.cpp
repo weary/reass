@@ -14,7 +14,8 @@
 #include <inttypes.h>
 
 packet_t::packet_t(packet_t *&free_head) :
-	free_list_member_t<packet_t>(free_head)
+	free_list_member_t<packet_t>(free_head),
+	d_pcap_buf(NULL), d_pcap_bufsize(0)
 #ifdef DEBUG
 	,d_is_initialised(0)
 #endif
@@ -25,21 +26,59 @@ packet_t::~packet_t()
 {
 }
 
-void packet_t::init(uint64_t packetnr, int linktype, const struct pcap_pkthdr *hdr, const u_char *data)
+void packet_t::init(
+		uint64_t packetnr,
+		int linktype,
+		const struct pcap_pkthdr *hdr,
+		const u_char *data,
+		bool *still_must_copy_data)
 {
 	d_packetnr = packetnr;
 	d_pckthdr = *hdr;
 	d_layercount = 0;
-	bpf_u_int32 caplen = hdr->caplen;
+	const bpf_u_int32 caplen = hdr->caplen;
+	d_pcap = data;
+	d_pcap_size = caplen;
 #ifdef DEBUG
 	d_is_initialised = 1;
 #endif
-	if (d_pcap.size() < hdr->caplen)
-		d_pcap.resize(hdr->caplen);
-	::memcpy(d_pcap.data(), data, caplen);
+	d_still_must_copy_data = still_must_copy_data;
+	if (!still_must_copy_data)
+		copy_data();
 
 	if (linktype == DLT_EN10MB)
-		parse_ethernet(d_pcap.data(), d_pcap.data() + caplen);
+		parse_ethernet(d_pcap, d_pcap + caplen);
+}
+
+static void rebase_ptr(const u_char *&p, const u_char *oldbuf, const u_char *newbuf)
+{
+	assert(p>=oldbuf);
+	p = newbuf + (p-oldbuf);
+}
+
+void packet_t::copy_data()
+{
+	assert(d_pcap != d_pcap_buf);
+	const bpf_u_int32 caplen = d_pckthdr.caplen;
+	if (d_pcap_bufsize < caplen)
+	{
+		delete d_pcap_buf;
+		d_pcap_buf = new u_char[caplen];
+		d_pcap_bufsize = caplen;
+	}
+	for (unsigned n=0; n<d_layercount; ++n)
+	{
+		rebase_ptr(d_layers[n].d_begin, d_pcap, d_pcap_buf);
+		rebase_ptr(d_layers[n].d_end, d_pcap, d_pcap_buf);
+	}
+
+	u_char *d = d_pcap_buf;
+	const u_char *s = d_pcap;
+	for (int n=0; n<caplen; ++n)
+		d[n] = s[n];
+
+	d_pcap = d_pcap_buf;
+	d_still_must_copy_data = NULL;
 }
 
 void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end)
@@ -50,7 +89,7 @@ void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end
 	++d_layercount;
 }
 
-void packet_t::parse_ethernet(u_char *begin, u_char *end)
+void packet_t::parse_ethernet(const u_char *begin, const u_char *end)
 {
 	if ((size_t)(end-begin) < sizeof(ether_header))
 		throw format_exception("packet has %d bytes, but need %d for ethernet header",
@@ -60,7 +99,7 @@ void packet_t::parse_ethernet(u_char *begin, u_char *end)
 
 	add_layer(layer_ethernet, begin, end);
 
-	u_char *next = begin + sizeof(hdr);
+	const u_char *next = begin + sizeof(hdr);
 	switch(ntohs(hdr.ether_type))
 	{
 		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
@@ -72,7 +111,7 @@ void packet_t::parse_ethernet(u_char *begin, u_char *end)
 	}
 }
 
-void packet_t::parse_ipv4(u_char *begin, u_char *end)
+void packet_t::parse_ipv4(const u_char *begin, const u_char *end)
 {
 	if (begin == end)
 		throw format_exception("empty ipv4 header");
@@ -94,8 +133,8 @@ void packet_t::parse_ipv4(u_char *begin, u_char *end)
 
 	// FIXME: fragments
 
-	u_char *next = begin + hdr.ihl*4;
-	u_char *nend = std::min<u_char *>(end, next + payload);
+	const u_char *next = begin + hdr.ihl*4;
+	const u_char *nend = std::min<const u_char *>(end, next + payload);
 	switch(hdr.protocol)
 	{
 		case(IPPROTO_TCP): parse_tcp(next, nend); break;
@@ -107,7 +146,7 @@ void packet_t::parse_ipv4(u_char *begin, u_char *end)
 	}
 }
 
-void packet_t::parse_ipv6(u_char *begin, u_char *end)
+void packet_t::parse_ipv6(const u_char *begin, const u_char *end)
 {
 	if (begin == end)
 		throw format_exception("empty ipv6 header");
@@ -124,7 +163,7 @@ void packet_t::parse_ipv6(u_char *begin, u_char *end)
 	add_layer(layer_ipv6, begin, end);
 
 	uint16_t payloadlen = ntohs(hdr.ip6_ctlun.ip6_un1.ip6_un1_plen);
-	u_char *next = begin + sizeof(ip6_hdr);
+	const u_char *next = begin + sizeof(ip6_hdr);
 	if (next + payloadlen > end)
 		throw format_exception("missing bytes from ipv6 field, have %d, need %d", end - next, payloadlen);
 #if 0
@@ -135,7 +174,7 @@ void packet_t::parse_ipv6(u_char *begin, u_char *end)
 #endif
 }
 
-void packet_t::parse_tcp(u_char *begin, u_char *end)
+void packet_t::parse_tcp(const u_char *begin, const u_char *end)
 {
 	const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*begin);
 	size_t size = end-begin;
@@ -146,12 +185,12 @@ void packet_t::parse_tcp(u_char *begin, u_char *end)
 		throw format_exception("packet has %d bytes, but need %d for tcp header",
 				size, hdr.doff*4);
 	add_layer(layer_tcp, begin, end);
-	u_char *data = begin + hdr.doff*4;
+	const u_char *data = begin + hdr.doff*4;
 	if (data < end)
 		add_layer(layer_data, data, end);
 };
 
-void packet_t::parse_udp(u_char *begin, u_char *end)
+void packet_t::parse_udp(const u_char *begin, const u_char *end)
 {
 	const udphdr &hdr = reinterpret_cast<const udphdr &>(*begin);
 	size_t size = end-begin;
@@ -159,7 +198,7 @@ void packet_t::parse_udp(u_char *begin, u_char *end)
 		throw format_exception("packet has %d bytes, but need %d for udp header",
 				size, sizeof(udphdr));
 	int payload = htons(hdr.len) - sizeof(udphdr);
-	u_char *next = begin + sizeof(udphdr);
+	const u_char *next = begin + sizeof(udphdr);
 	add_layer(layer_udp, begin, end);
 	if (end-next < payload) payload = end-next;
 	if (payload > 0)
