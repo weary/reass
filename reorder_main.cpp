@@ -242,7 +242,9 @@ int main(int argc, char *argv[])
 
 	if (mode == mode_interactive)
 	{ // launch editor
-		system((std::string(getenv("EDITOR")) + " " + orderfile).c_str());
+		int r = system((std::string(getenv("EDITOR")) + " " + orderfile).c_str());
+		if (r == -1)
+			unix_die("fork'ing to launch editor");
 	}
 
 	if (mode == mode_interactive || mode == mode_parse)

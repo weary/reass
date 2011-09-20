@@ -31,13 +31,15 @@ public:
 	// note that stream can be considered closed before that, use tcp_stream_t::closed() (fin/rst packet has been accepted)
 	virtual void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream)
 	{
-		packet->release(); // done with packet
+		if (packet)
+			packet->release(); // done with packet
 	}
 
 	// packet in udp stream
 	virtual void accept_udp(packet_t *packet, udp_stream_t *stream)
 	{
-		packet->release(); // done with packet
+		if (packet)
+			packet->release(); // done with packet
 	}
 
 	// parsing failed on packet
