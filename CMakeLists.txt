@@ -25,24 +25,9 @@ else()
 endif()
 
 
+include_directories(.)
 include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
 
-add_library(reass
-		ip_address.cpp
-		packet.cpp
-		pcap_reader.cpp
-		tcp_reassembler.cpp
-		shared/misc.cpp
-		)
-target_link_libraries(reass pcap)
-
-
-add_executable(reass_thingy reass_thingy.cpp)
-target_link_libraries(reass_thingy reass ssl)
-
-add_executable(reass_speedtest reass_speedtest.cpp)
-target_link_libraries(reass_speedtest reass)
-
-add_executable(pcap_manual_reorder reorder_main.cpp)
-target_link_libraries(pcap_manual_reorder reass)
+subdirs(lib)
+subdirs(demo)

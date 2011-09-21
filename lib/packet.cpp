@@ -60,21 +60,22 @@ void packet_t::copy_data()
 {
 	assert(d_pcap != d_pcap_buf);
 	const bpf_u_int32 caplen = d_pckthdr.caplen;
-	if (d_pcap_bufsize < caplen)
+	if (d_pcap_bufsize < caplen) // do we have enough space ready?
 	{
 		delete d_pcap_buf;
 		d_pcap_buf = new u_char[caplen];
 		d_pcap_bufsize = caplen;
 	}
 	for (unsigned n=0; n<d_layercount; ++n)
-	{
+	{ // adust layers to new pointers
 		rebase_ptr(d_layers[n].d_begin, d_pcap, d_pcap_buf);
 		rebase_ptr(d_layers[n].d_end, d_pcap, d_pcap_buf);
 	}
 
+	// memcpy
 	u_char *d = d_pcap_buf;
 	const u_char *s = d_pcap;
-	for (int n=0; n<caplen; ++n)
+	for (unsigned n=0; n<caplen; ++n)
 		d[n] = s[n];
 
 	d_pcap = d_pcap_buf;
