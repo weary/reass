@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8)
 
-# cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Release
+project(reass)
 
 find_package( Boost REQUIRED )
 #include(../boost147/CMakeInclude.txt) # boost 147 not supported by find_package
@@ -31,3 +31,5 @@ link_directories(${Boost_LIBRARY_DIRS})
 
 subdirs(lib)
 subdirs(demo)
+subdirs(testcases)
+

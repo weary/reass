@@ -7,3 +7,4 @@ libreass.a
 pcap_manual_reorder
 reass_speedtest
 reass_thingy
+unittest
