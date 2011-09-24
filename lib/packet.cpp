@@ -5,12 +5,13 @@
 #define __STDC_FORMAT_MACROS // for PRIu64
 
 #include "packet.h"
-#include "net/ethernet.h"
-#include "netinet/ip.h"
-#include "netinet/ip6.h"
-#include "netinet/tcp.h"
-#include "netinet/udp.h"
 #include "shared/misc.h"
+#include <net/ethernet.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+#include <pcap/sll.h>
 #include <inttypes.h>
 
 packet_t::packet_t(packet_t *&free_head) :
@@ -46,8 +47,17 @@ void packet_t::init(
 	if (!still_must_copy_data)
 		copy_data();
 
-	if (linktype == DLT_EN10MB)
-		parse_ethernet(d_pcap, d_pcap + caplen);
+	switch(linktype)
+	{
+		case(DLT_EN10MB):
+			parse_ethernet(d_pcap, d_pcap + caplen);
+			break;
+		case(DLT_LINUX_SLL):
+			parse_cooked(d_pcap, d_pcap + caplen);
+			break;
+		default:
+			throw format_exception("unsupported linktype %d", linktype);
+	}
 }
 
 static void rebase_ptr(const u_char *&p, const u_char *oldbuf, const u_char *newbuf)
@@ -88,6 +98,28 @@ void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end
 		throw format_exception("max layers reached");
 	d_layers[d_layercount].set(begin, end, type);
 	++d_layercount;
+}
+
+void packet_t::parse_cooked(const u_char *begin, const u_char *end)
+{
+	if ((size_t)(end-begin) < sizeof(sll_header))
+		throw format_exception("packet has %d bytes, but need %d for cooked header",
+				end-begin, sizeof(sll_header));
+
+	const sll_header &hdr = reinterpret_cast<const sll_header &>(*begin);
+
+	add_layer(layer_cooked, begin, end);
+
+	const u_char *next = begin + sizeof(hdr);
+	switch(ntohs(hdr.sll_protocol))
+	{
+		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
+		case(ETHERTYPE_IPV6): parse_ipv6(next, end); break;
+		case(ETHERTYPE_ARP): /* arp */ break;
+		case(0x88CC): /* LLDP */ break;
+		default:
+			throw format_exception("invalid protocol 0x%x in cooked header", ntohs(hdr.sll_protocol));
+	}
 }
 
 void packet_t::parse_ethernet(const u_char *begin, const u_char *end)
@@ -223,6 +255,7 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 	switch(l.type())
 	{
 		case(layer_ethernet): os << "eth"; break;
+		case(layer_cooked): os << "cooked"; break;
 		case(layer_ipv4):
 			{
 				const iphdr &hdr = reinterpret_cast<const iphdr &>(*l.data());

@@ -15,6 +15,7 @@ struct pcap_writer_t : public boost::noncopyable
 	~pcap_writer_t();
 
 	void add(const packet_t *packet);
+	void add(const struct pcap_pkthdr *hdr, const u_char *data);
 protected:
 	pcap_dumper_t *d_dumper;
 };
@@ -26,7 +27,7 @@ inline pcap_writer_t &operator <<(pcap_writer_t &writer, const packet_t *packet)
 	return writer;
 }
 
-pcap_writer_t::pcap_writer_t(const std::string &fname, int linktype, int snaplen) :
+inline pcap_writer_t::pcap_writer_t(const std::string &fname, int linktype, int snaplen) :
 	d_dumper(NULL)
 {
 	pcap_t *p = pcap_open_dead(linktype, snaplen);
@@ -42,16 +43,22 @@ pcap_writer_t::pcap_writer_t(const std::string &fname, int linktype, int snaplen
 	pcap_close(p);
 }
 
-pcap_writer_t::~pcap_writer_t()
+inline pcap_writer_t::~pcap_writer_t()
 {
 	if (d_dumper)
 		pcap_dump_close(d_dumper);
 }
 
-void pcap_writer_t::add(const packet_t *packet)
+inline void pcap_writer_t::add(const packet_t *packet)
 {
 	assert(packet);
 	pcap_dump((u_char *)d_dumper, &packet->pckthdr(), packet->data());
+}
+
+inline void pcap_writer_t::add(const struct pcap_pkthdr *hdr, const u_char *data)
+{
+	assert(hdr && data);
+	pcap_dump((u_char *)d_dumper, hdr, data);
 }
 
 #endif // __REASS_PCAP_WRITER_H__

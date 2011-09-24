@@ -18,6 +18,7 @@
 enum layer_type
 {
 	layer_ethernet, // ether_header
+	layer_cooked, // sll_header
 	layer_ipv4, // iphdr
 	layer_ipv6, // ip6_hdr
 	layer_tcp, // tcphdr
@@ -60,6 +61,7 @@ struct packet_t : public free_list_member_t<packet_t>
 			const struct pcap_pkthdr *hdr, const u_char *data,
 			bool *have_copied_data = NULL);
 
+	void parse_cooked(const u_char *begin, const u_char *end);
 	void parse_ethernet(const u_char *begin, const u_char *end);
 	void parse_ipv4(const u_char *begin, const u_char *end);
 	void parse_ipv6(const u_char *begin, const u_char *end);

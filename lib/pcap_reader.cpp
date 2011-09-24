@@ -149,16 +149,15 @@ void pcap_reader_t::enable_udp_reassembly(bool en)
 	}
 }
 
-
 // called whenever libpcap has a packet
 void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *data)
 {
-	packet_t *packet = claim();
+	packet_t *packet = claim(); // get space from free list (or new if free list was empty)
 
-	bool must_copy = true;
+	bool must_copy = true; // packet is using libpcap memory
 	try
 	{
-		packet->init(++d_packetnr, d_linktype, hdr, data, &must_copy);
+		packet->init(++d_packetnr, d_linktype, hdr, data, &must_copy); // parse layers
 
 		// reassemble tcp if top-layer is tcp, or tcp+data
 		layer_t *top = packet->layer(-1);
@@ -204,6 +203,6 @@ void pcap_reader_t::read_packets() // read one bufferful of packets
 	int r = pcap_dispatch(d_pcap, -1, handler, (u_char *)this);
 	if (r == -1)
 		throw format_exception("Pcap reader failed, %s", pcap_geterr(d_pcap));
-	printf("got %d packets in read_packets\n", r);
+	//printf("got %d packets in read_packets\n", r);
 }
 
