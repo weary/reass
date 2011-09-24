@@ -2,6 +2,7 @@
  * Copyright 2011 Hylke Vellinga
  */
 
+#define __STDC_FORMAT_MACROS // for PRIu64
 
 #include "packet.h"
 #include "net/ethernet.h"
@@ -10,6 +11,7 @@
 #include "netinet/tcp.h"
 #include "netinet/udp.h"
 #include "shared/misc.h"
+#include <inttypes.h>
 
 packet_t::packet_t(packet_t *&free_head) :
 	free_list_member_t<packet_t>(free_head)
@@ -236,7 +238,7 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 void packet_t::print(std::ostream &os) const
 {
 	char buf[256];
-	sprintf(buf, "[%4ld %d.%06d %4d", d_packetnr, (unsigned)d_ts.tv_sec, (unsigned)d_ts.tv_usec, d_caplen);
+	sprintf(buf, "[%4"PRIu64" %d.%06d %4d", d_packetnr, (unsigned)d_ts.tv_sec, (unsigned)d_ts.tv_usec, d_caplen);
 	os << buf;
 	if (d_caplen != d_len)
 		os << '/' << d_len;
