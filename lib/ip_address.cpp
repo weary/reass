@@ -16,23 +16,32 @@ static uint128_t as_uint128(const in6_addr &a)
 	return *reinterpret_cast<const uint128_t *>(&a);
 }
 
+BOOST_STATIC_ASSERT(offsetof(ip_address_t, v4.sin_port) == offsetof(ip_address_t, v6.sin6_port));
+
+std::string ip_address_t::ip() const
+{
+	char buf[INET6_ADDRSTRLEN];
+	int family = v4.sin_family;
+	const void *addr =
+		(family == AF_INET ? (const void *)&v4.sin_addr : &v6.sin6_addr);
+	const char * r = inet_ntop(
+			family,
+			addr,
+			buf, INET6_ADDRSTRLEN);
+	if (!r) return "unprintable";
+
+	return buf;
+}
+
 
 std::ostream &operator <<(std::ostream &os, const ip_address_t &ip)
 {
-	char buf[INET6_ADDRSTRLEN];
-	int family = ip.v4.sin_family;
-	const void *addr =
-		 	(family == AF_INET ? (const void *)&ip.v4.sin_addr : &ip.v6.sin6_addr);
-	const char * r = inet_ntop(
-			family,
-		 	addr,
-			buf, INET6_ADDRSTRLEN);
+	std::string addr = ip.ip();
 
-	if (!r) r = "unprintable";
-	if (family == AF_INET)
-		os << r << ':' << ntohs(ip.v4.sin_port);
+	if (ip.v4.sin_family == AF_INET)
+		os << addr << ':' << ip.port();
 	else
-		os << '[' << r << "]:" << ntohs(ip.v6.sin6_port);
+		os << '[' << addr << "]:" << ip.port();
 	return os;
 }
 

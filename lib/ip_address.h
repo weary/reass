@@ -16,6 +16,9 @@ struct ip_address_t
 		sockaddr_in v4;
 		sockaddr_in6 v6;
 	};
+
+	std::string ip() const;
+	uint16_t port() const { return ntohs(v4.sin_port); }
 };
 
 std::ostream &operator <<(std::ostream &, const ip_address_t &);
