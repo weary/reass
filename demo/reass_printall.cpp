@@ -12,59 +12,46 @@
 
 class packet_listener_t;
 
-std::string to_hex(const uint8_t *buf, int size)
-{
-	std::string r;
-	while (size)
-	{
-		char locbuf[3];
-		sprintf(locbuf, "%02x", *buf);
-		r = r + locbuf;
-		--size; ++buf;
-	}
-	return r;
-}
-
 struct stream_t
 {
 	stream_t(tcp_stream_t *stream) :
-		d_stream(stream),
-		d_key(to_str(*stream))
+		d_prefix(stream->initiator() ? "i" : "r")
 	{
-		SHA1_Init(&d_shactx);
 	}
 
-	~stream_t()
-	{
-	}
+	~stream_t() {}
 
 	void accept_tcp(packet_t *packet, int packetloss)
 	{
+		auto_release_t<packet_t> releaser(packet);
 		if (packet)
 		{
 			layer_t *toplayer = packet->layer(-1);
 			if (!toplayer || toplayer->type() != layer_data)
+				return;
+
+			d_data.append((const char *)toplayer->begin(), toplayer->size());
+
+			// find eol and print
+			while (1)
 			{
-				//std::cout << "TCP " << d_key << " got empty packet\n";
+				std::string::size_type i = d_data.find('\n');
+				if (i == std::string::npos)
+					break;
+
+				printf("%s: %s\n", d_prefix.c_str(), d_data.substr(0, i).c_str());
+				d_data = d_data.substr(i+1);
 			}
-			else
-			{
-				SHA1_Update(&d_shactx, toplayer->begin(), toplayer->size());
-			}
-			packet->release();
 		}
 		else
 		{
-			//std::cout << "TCP " << d_key << " finally closed, got " << d_data.size() << " bytes data\n";
-			uint8_t buf[SHA_DIGEST_LENGTH];
-			SHA1_Final(buf, &d_shactx);
-			printf("%s %s\n", to_hex(buf, SHA_DIGEST_LENGTH).c_str(), d_key.c_str());
+			if (!d_data.empty())
+				printf("%s: %s\n", d_prefix.c_str(), d_data.c_str());
 		}
 	}
 
-	tcp_stream_t *d_stream; // note, not valid after accept_tcp(NULL, ..) has been called
-	SHA_CTX d_shactx;
-	std::string d_key;
+protected:
+	std::string d_prefix, d_data;
 };
 
 class my_packet_listener_t : public packet_listener_t
@@ -76,24 +63,12 @@ public:
 
 	void begin_capture(const std::string &name, int linktype, int snaplen)
 	{
-		std::string bname = basename(name.c_str());
-		std::string fname = "writer_" + bname;
-		delete d_writer;
-		d_writer = new pcap_writer_t(fname, linktype, snaplen);
-		std::cout << "writing to '" << fname << "'\n";
-	}
-
-	void accept(packet_t *packet)
-	{
-		assert(packet);
-		(*d_writer) << packet;
-		packet->release(); // done with packet
+		printf("new capture '%s'\n", name.c_str());
 	}
 
 	void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream)
 	{
-		if (packet)
-			(*d_writer) << packet;
+		printf("have packet\n");
 		stream_t *user = reinterpret_cast<stream_t *>(stream->userdata());
 		if (!user)
 		{
@@ -106,16 +81,9 @@ public:
 			delete user;
 	}
 
-	void accept_udp(packet_t *packet, udp_stream_t *stream)
-	{
-		packet->release(); // done with packet
-	}
-
 	void accept_error(packet_t *packet, const char *error)
 	{
-		std::cout << "ERROR: " << *packet << ": " << error << "\n";
-		exit(-1);
-		packet->release(); // done with packet
+		throw format_exception("error parsing packet '%s': %s", to_str(*packet).c_str(), error);
 	}
 };
 
