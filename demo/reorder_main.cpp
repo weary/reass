@@ -144,9 +144,14 @@ void write_pcap(
 
 void printhelp(const char *argv0)
 {
-	printf("%s [--interactive,-i or --generate,-g <orderfile> or --parse,-p <orderfile>\n", basename(argv0));
-	printf("\n use --generate to create a textfile with all packetnumbers, edit it with your editor and create a re-arranged pcap with --parse\n");
-	printf("or use --interactive to do all at once\n");
+	const char *app = basename(argv0);
+
+	printf("Usage:\n");
+	printf("  %s --interactive -o <output pcap> <input pcaps>\n", app);
+	printf("\n  or\n\n");
+	printf("  %s --generate <genfile.txt> <input pcaps>\n", app);
+	printf("  (edit genfile.txt to your liking)\n");
+	printf("  %s --parse <genfile.txt> -o <output pcap> <input pcaps>\n", app);
 }
 
 int main(int argc, char *argv[])
