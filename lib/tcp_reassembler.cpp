@@ -264,7 +264,7 @@ void tcp_stream_t::find_direction(packet_t *packet, const layer_t *tcplay)
 		if (hdr.syn)
 			d_direction = (hdr.ack ? direction_responder : direction_initiator);
 		else
-			d_direction = (htons(hdr.source) < htons(hdr.dest) ? direction_initiator : direction_responder);
+			d_direction = (htons(hdr.source) > htons(hdr.dest) ? direction_initiator : direction_responder);
 
 		if (have_partner())
 			d_partner->d_direction = (d_direction == direction_initiator ? direction_responder : direction_initiator);
