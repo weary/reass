@@ -1,3 +1,8 @@
+/*
+ * Copyright 2011 Hylke Vellinga
+ */
+
+
 #include "packet.h"
 #include "net/ethernet.h"
 #include "netinet/ip.h"

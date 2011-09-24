@@ -1,3 +1,8 @@
+/*
+ * Copyright 2011 Hylke Vellinga
+ */
+
+
 #ifndef __REASS_PACKET_H__
 #define __REASS_PACKET_H__
 
