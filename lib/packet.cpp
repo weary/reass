@@ -199,12 +199,14 @@ void packet_t::parse_ipv6(const u_char *begin, const u_char *end)
 	const u_char *next = begin + sizeof(ip6_hdr);
 	if (next + payloadlen > end)
 		throw format_exception("missing bytes from ipv6 field, have %d, need %d", end - next, payloadlen);
-#if 0
-	if (hdr.protocol == IPPROTO_TCP)
-		parse_tcp(next, next + payloadlen);
-	else
-		throw format_exception("unsupported protocol %d in ipv6 header", hdr.protocol);
-#endif
+
+	uint8_t protocol = hdr.ip6_nxt;
+	switch(protocol)
+	{
+		case(IPPROTO_TCP): parse_tcp(next, next + payloadlen); break;
+		default:
+			throw format_exception("unsupported protocol %d in ipv6 header", protocol);
+	}
 }
 
 void packet_t::parse_tcp(const u_char *begin, const u_char *end)
