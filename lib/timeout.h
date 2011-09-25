@@ -14,16 +14,23 @@ typedef boost::intrusive::list_base_hook<
 
 const uint64_t basetime = 1314514000;
 
-// FIXME: minimal granularity is 1 sec, which is very large for 1GB/s and up
+// minimal granularity is 1 sec, which is very large for 1GB/s and up,
+// but we are checking for a 1 minute or 10 minute timeout anyway, so
+// it hurts (costs memory)
 template<int MAX_TIMEOUT, int GRANULARITY, typename STREAMTYPE>
 struct timeouts_t
 {
-	typedef boost::intrusive::list<STREAMTYPE, boost::intrusive::constant_time_size<false> > streamlist_t;
+	typedef boost::intrusive::list<
+		STREAMTYPE,
+		boost::intrusive::constant_time_size<false>
+	> streamlist_t;
 
 	timeouts_t() : d_now(0), d_now_in_slots(0) {}
 
 	void set_time(uint64_t now, streamlist_t &out);
 	void set_timeout(uint64_t when, STREAMTYPE *stream1, STREAMTYPE *stream2);
+
+	uint64_t now() const { return d_now; }
 
 protected:
 	enum { max_timeout = MAX_TIMEOUT };
@@ -62,7 +69,7 @@ inline void timeouts_t<MAX_TIMEOUT, GRANULARITY, STREAMTYPE>::set_timeout(
 	if (when < d_now)
 		slot = 0; // in the past, set it so it will timeout asap
 	else
-		slot = (when - d_now) / granularity;
+		slot = (when - 1 - d_now) / granularity;
 	if (slot >= slots)
 		throw format_exception("timeout %ld exceeds max timeout %ld+%d = %ld\n",
 			 	when-basetime, d_now-basetime, max_timeout, d_now + max_timeout-basetime);

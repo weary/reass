@@ -131,16 +131,33 @@ bool compare(const plossmap_t &test, const plossmap_t &ref)
 	return result;
 }
 
-BOOST_AUTO_TEST_CASE(ipv4)
+void get_ref_ipv4(resultmap_t &reference)
 {
-	resultmap_t reference;
-	plossmap_t plossref;
+	// correct hashes for ref.pcap
 	reference["192.168.9.3:60254 -> 192.168.9.2:2001"] = "18456bb3 24b3b6ab 5674c21d a0b98b5e 32340a8d"; // i1
 	reference["192.168.9.2:2001 -> 192.168.9.3:60254"] = "2a80023e 426fc810 72f224a2 d4b6e9d3 d8de8452"; // r1
 	reference["192.168.9.3:47263 -> 192.168.9.2:2002"] = "7cc5a783 0f675484 376947e4 f4c4dbcf 7147e317"; // i2
 	reference["192.168.9.2:2002 -> 192.168.9.3:47263"] = "f0c4c232 5f199101 a8aec09d 48cb5abd b6cffefb"; // r2
 	reference["192.168.9.3:48273 -> 192.168.9.2:2003"] = "bd256242 4d82233f 45c13534 8e811dce a7598396"; // i3
 	reference["192.168.9.2:2003 -> 192.168.9.3:48273"] = "03381cd2 f3bd3be3 98bf93e5 11621e6c e0e8012f"; // r3
+}
+
+void get_ref_ipv6(resultmap_t &reference)
+{
+	// correct hashes for ref_ipv6.pcap
+	reference["[2002::2]:37094 -> [2002::1]:9999"] = "18456bb3 24b3b6ab 5674c21d a0b98b5e 32340a8d"; // i1
+	reference["[2002::1]:9999 -> [2002::2]:37094"] = "2a80023e 426fc810 72f224a2 d4b6e9d3 d8de8452"; // r1
+	reference["[2002::2]:37093 -> [2002::1]:9999"] = "7cc5a783 0f675484 376947e4 f4c4dbcf 7147e317"; // i2
+	reference["[2002::1]:9999 -> [2002::2]:37093"] = "f0c4c232 5f199101 a8aec09d 48cb5abd b6cffefb"; // r2
+	reference["[2002::2]:37095 -> [2002::1]:9999"] = "bd256242 4d82233f 45c13534 8e811dce a7598396"; // i3
+	reference["[2002::1]:9999 -> [2002::2]:37095"] = "03381cd2 f3bd3be3 98bf93e5 11621e6c e0e8012f"; // r3
+}
+
+BOOST_AUTO_TEST_CASE(ipv4)
+{
+	resultmap_t reference;
+	plossmap_t plossref;
+	get_ref_ipv4(reference);
 
 	hashing_listener_t listener;
 	pcap_reader_t reader(&listener);
@@ -150,16 +167,42 @@ BOOST_AUTO_TEST_CASE(ipv4)
 	BOOST_CHECK(compare(listener.d_loss, plossref));
 }
 
+BOOST_AUTO_TEST_CASE(ipv4_nosynfin)
+{
+	resultmap_t reference;
+	plossmap_t plossref;
+	get_ref_ipv4(reference);
+	//reference["192.168.9.3:60254 -> 192.168.9.2:2001"] = "18456bb3 24b3b6ab 5674c21d a0b98b5e 32340a8d"; // i1
+	//reference["192.168.9.2:2001 -> 192.168.9.3:60254"] = "2a80023e 426fc810 72f224a2 d4b6e9d3 d8de8452"; // r1
+
+	hashing_listener_t listener;
+	pcap_reader_t reader(&listener);
+	reader.read_file("ref.pcap", "len > 100 or tcp[tcpflags] & (tcp-syn | tcp-fin) == 0"); // no syn/fin packets unless we have payload
+	tcp_reassembler_t *tcp_reass = reader.tcp_reassembler();
+
+	// timeout of 60 should be enough, because one partner has a FIN, should put both sides on short timeout
+	// actually needs to be 60 + timeout-granularity
+	// calling ->flush() should have the same effect
+	const uint64_t now = tcp_reass->now();
+	const uint64_t gran = 8;
+	for (uint64_t ts = now; ts < now + 60; ++ts)
+	{
+		tcp_reass->set_now(ts);
+		BOOST_CHECK_LT(listener.d_out.size(), 6);
+	}
+	tcp_reass->set_now(now + 60 + gran);
+	BOOST_CHECK_EQUAL(listener.d_out.size(), 6);
+
+	BOOST_CHECK(compare(listener.d_out, reference));
+	BOOST_CHECK(compare(listener.d_loss, plossref));
+}
+
+
 BOOST_AUTO_TEST_CASE(ipv6)
 {
 	resultmap_t reference;
 	plossmap_t plossref;
-	reference["[2002::2]:37094 -> [2002::1]:9999"] = "18456bb3 24b3b6ab 5674c21d a0b98b5e 32340a8d"; // i1
-	reference["[2002::1]:9999 -> [2002::2]:37094"] = "2a80023e 426fc810 72f224a2 d4b6e9d3 d8de8452"; // r1
-	reference["[2002::2]:37093 -> [2002::1]:9999"] = "7cc5a783 0f675484 376947e4 f4c4dbcf 7147e317"; // i2
-	reference["[2002::1]:9999 -> [2002::2]:37093"] = "f0c4c232 5f199101 a8aec09d 48cb5abd b6cffefb"; // r2
-	reference["[2002::2]:37095 -> [2002::1]:9999"] = "bd256242 4d82233f 45c13534 8e811dce a7598396"; // i3
-	reference["[2002::1]:9999 -> [2002::2]:37095"] = "03381cd2 f3bd3be3 98bf93e5 11621e6c e0e8012f"; // r3
+	get_ref_ipv6(reference);
 
 	hashing_listener_t listener;
 	pcap_reader_t reader(&listener);

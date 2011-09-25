@@ -35,6 +35,9 @@ struct pcap_reader_t : private free_list_container_t<packet_t>
 
 	int linktype() const { return d_linktype; }
 	int snaplen() const { return pcap_snapshot(d_pcap); }
+
+	tcp_reassembler_t *tcp_reassembler() const { return d_tcp_reassembler; }
+	udp_reassembler_t *udp_reassembler() const { return d_udp_reassembler; }
 protected:
 	void handle_packet(const struct pcap_pkthdr *hdr, const u_char *data); // callback from libpcap
 #ifdef NO_MEMBER_CALLBACK

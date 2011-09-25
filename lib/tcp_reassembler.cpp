@@ -465,17 +465,16 @@ void tcp_stream_t::set_partner(tcp_stream_t *other)
 	other->check_delayed();
 }
 
-// global timeouts, no newer packets have been seen (not even delayed)
-void tcp_reassembler_t::check_timeouts(uint64_t now)
+void tcp_reassembler_t::set_now(uint64_t now)
 {
 	tcp_timeouts_t::streamlist_t timeouts;
-	d_timeouts.set_time(now, timeouts);
+	d_timeouts.set_time(now, timeouts); // remove all streams before 'now' from 'd_timeouts' and return in 'timeouts'
 
+	// close all streams with timeouts. list should contain all initiator/responder pairs
 	while (!timeouts.empty())
 	{
 		tcp_stream_t *s = &timeouts.front();
 		timeouts.pop_front();
-
 
 		close_stream(s);
 	}
@@ -498,9 +497,9 @@ void tcp_reassembler_t::process(packet_t *packet)
 {
 	assert(packet->is_initialised());
 	const layer_t *tcplay = find_tcp_layer(packet);
-	assert(tcplay);
+	assert(tcplay && "packet is not tcp");
 
-	check_timeouts(packet->ts().tv_sec);
+	set_now(packet->ts().tv_sec);
 
 	stream_set_t::iterator it = find_or_create_stream(packet, tcplay);
 	it->add(packet, tcplay);

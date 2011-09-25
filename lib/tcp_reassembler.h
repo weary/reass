@@ -139,10 +139,14 @@ struct tcp_reassembler_t : private free_list_container_t<tcp_stream_t>
 
 	void set_listener(packet_listener_t *listener) { d_listener = listener; }
 
+	// advance current time to specified nr-of-seconds since epoch (1970)
+	// will not move time backwards, checks timeouts
+	void set_now(uint64_t now);
+	uint64_t now() const { return d_timeouts.now(); }
+
 	void flush();
 protected:
 	packet_listener_t *d_listener;
-	//timeval d_now;
 
 	typedef boost::intrusive::unordered_set<
 		tcp_stream_t,
@@ -154,11 +158,10 @@ protected:
 
 	std::vector<stream_set_t::bucket_type> d_stream_buckets;
 	stream_set_t d_streams;
-	typedef timeouts_t<610, 10, tcp_stream_t> tcp_timeouts_t;
+	typedef timeouts_t<616, 8, tcp_stream_t> tcp_timeouts_t; // 10 mins + 10 secs rounded up to multiple of 8
 	tcp_timeouts_t d_timeouts;
 
 	stream_set_t::iterator find_or_create_stream(packet_t *packet, const layer_t *tcplay);
-	void check_timeouts(uint64_t now);
 	void close_stream(tcp_stream_t *stream);
 };
 
