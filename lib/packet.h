@@ -63,6 +63,7 @@ struct packet_t : public free_list_member_t<packet_t>
 
 	void parse_cooked(const u_char *begin, const u_char *end);
 	void parse_ethernet(const u_char *begin, const u_char *end);
+	void parse_vlan(const u_char *begin, const u_char *end);
 	void parse_ipv4(const u_char *begin, const u_char *end);
 	void parse_ipv6(const u_char *begin, const u_char *end);
 	void parse_tcp(const u_char *begin, const u_char *end);
@@ -82,7 +83,8 @@ struct packet_t : public free_list_member_t<packet_t>
 			*d_still_must_copy_data = false;
 #ifdef DEBUG
 		assert(is_initialised()); // only free once
-		::memset(d_pcap_buf, 'Y', d_pcap_bufsize);
+		if (d_pcap_buf)
+			::memset(d_pcap_buf, 'Y', d_pcap_bufsize);
 		::memset(d_layers, 'Y', MAX_LAYERS*sizeof(layer_t));
 		//d_packetnr = (uint64_t)-1;
 		d_is_initialised = 2;
@@ -104,10 +106,12 @@ struct packet_t : public free_list_member_t<packet_t>
 
 	void add_layer(layer_type, const u_char *begin, const u_char *end);
 protected:
+	void parse_next_ethertype(uint16_t ethertype, const u_char *next, const u_char *end, const char *curname);
+
 	uint64_t d_packetnr;
 	struct pcap_pkthdr d_pckthdr; // contains ts/caplen/len
 
-	u_char *d_pcap_buf;
+	u_char *d_pcap_buf; // only initialised if this packet ever needed local storage
 	const u_char *d_pcap; // points to the data, either to d_pcap_buf, or to external buffer
 	uint32_t d_pcap_bufsize; // number of allocated bytes in d_pcap_buf
 	uint32_t d_pcap_size; // at least caplen, number of valid bytes at *d_pcap

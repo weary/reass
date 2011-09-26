@@ -25,6 +25,7 @@ packet_t::packet_t(packet_t *&free_head) :
 
 packet_t::~packet_t()
 {
+	if (d_pcap_buf) { delete[] d_pcap_buf; d_pcap_buf = NULL; }
 }
 
 void packet_t::init(
@@ -72,7 +73,7 @@ void packet_t::copy_data()
 	const bpf_u_int32 caplen = d_pckthdr.caplen;
 	if (d_pcap_bufsize < caplen) // do we have enough space ready?
 	{
-		delete d_pcap_buf;
+		delete[] d_pcap_buf;
 		d_pcap_buf = new u_char[caplen];
 		d_pcap_bufsize = caplen;
 	}
@@ -100,6 +101,28 @@ void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end
 	++d_layercount;
 }
 
+void packet_t::parse_next_ethertype(uint16_t ethertype,
+		const u_char *next, const u_char *end, const char *curname)
+{
+	if (ethertype < 1500)
+		return; // length, logical-link control. // FIXME: parse
+	else if (ethertype <= 1536)
+		throw format_exception("invalid protocol 0x%x in %s header (should not have this value)", ethertype, curname);
+
+	switch(ethertype)
+	{
+		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
+		case(ETHERTYPE_IPV6): parse_ipv6(next, end); break;
+		case(ETHERTYPE_VLAN): parse_vlan(next, end); break;
+		case(ETHERTYPE_IPX): /* ipx */ break;
+		case(ETHERTYPE_ARP): /* arp */ break;
+		case(0x88CC): /* LLDP */ break;
+		case(0x00a6): /* logical-link control */ break; // FIXME: check
+		default:
+			throw format_exception("invalid protocol 0x%x in %s header", ethertype, curname);
+	}
+}
+
 void packet_t::parse_cooked(const u_char *begin, const u_char *end)
 {
 	if ((size_t)(end-begin) < sizeof(sll_header))
@@ -111,15 +134,7 @@ void packet_t::parse_cooked(const u_char *begin, const u_char *end)
 	add_layer(layer_cooked, begin, end);
 
 	const u_char *next = begin + sizeof(hdr);
-	switch(ntohs(hdr.sll_protocol))
-	{
-		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
-		case(ETHERTYPE_IPV6): parse_ipv6(next, end); break;
-		case(ETHERTYPE_ARP): /* arp */ break;
-		case(0x88CC): /* LLDP */ break;
-		default:
-			throw format_exception("invalid protocol 0x%x in cooked header", ntohs(hdr.sll_protocol));
-	}
+	parse_next_ethertype(ntohs(hdr.sll_protocol), next, end, "cooked");
 }
 
 void packet_t::parse_ethernet(const u_char *begin, const u_char *end)
@@ -133,15 +148,20 @@ void packet_t::parse_ethernet(const u_char *begin, const u_char *end)
 	add_layer(layer_ethernet, begin, end);
 
 	const u_char *next = begin + sizeof(hdr);
-	switch(ntohs(hdr.ether_type))
-	{
-		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
-		case(ETHERTYPE_IPV6): parse_ipv6(next, end); break;
-		case(ETHERTYPE_ARP): /* arp */ break;
-		case(0x88CC): /* LLDP */ break;
-		default:
-			throw format_exception("invalid ether_type 0x%x in ethernet header", ntohs(hdr.ether_type));
-	}
+	parse_next_ethertype(ntohs(hdr.ether_type), next, end, "ether");
+}
+
+void packet_t::parse_vlan(const u_char *begin, const u_char *end)
+{
+	const size_t vlan_size = 4;
+	if ((size_t)(end-begin) < vlan_size)
+		throw format_exception("packet has %d bytes, but need %d for vlan header",
+				end-begin, vlan_size);
+
+	const uint16_t *hdr = reinterpret_cast<const uint16_t *>(begin);
+
+	const u_char *next = begin + vlan_size;
+	parse_next_ethertype(ntohs(hdr[1]), next, end, "vlan");
 }
 
 void packet_t::parse_ipv4(const u_char *begin, const u_char *end)
