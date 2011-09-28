@@ -7,10 +7,12 @@
 #include "packet.h"
 #include "shared/misc.h"
 #include <net/ethernet.h>
+#include <net/if_ppp.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <netinet/in.h>
 #include <pcap/sll.h>
 #include <inttypes.h>
 
@@ -25,6 +27,7 @@ packet_t::packet_t(packet_t *&free_head) :
 
 packet_t::~packet_t()
 {
+	if (d_pcap_buf) { delete[] d_pcap_buf; d_pcap_buf = NULL; }
 }
 
 void packet_t::init(
@@ -55,6 +58,11 @@ void packet_t::init(
 		case(DLT_LINUX_SLL):
 			parse_cooked(d_pcap, d_pcap + caplen);
 			break;
+		case(18): // FIXME 18 only defined for openbsd, while this seems to be another DLT_RAW
+			parse_ipv4(d_pcap, d_pcap + caplen);
+			break;
+		case(DLT_MTP2): // Message Transfer Part Level 2
+			break;
 		default:
 			throw format_exception("unsupported linktype %d", linktype);
 	}
@@ -72,7 +80,7 @@ void packet_t::copy_data()
 	const bpf_u_int32 caplen = d_pckthdr.caplen;
 	if (d_pcap_bufsize < caplen) // do we have enough space ready?
 	{
-		delete d_pcap_buf;
+		delete[] d_pcap_buf;
 		d_pcap_buf = new u_char[caplen];
 		d_pcap_bufsize = caplen;
 	}
@@ -100,6 +108,30 @@ void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end
 	++d_layercount;
 }
 
+void packet_t::parse_next_ethertype(uint16_t ethertype,
+		const u_char *next, const u_char *end, const char *curname)
+{
+	if (ethertype < 1500)
+		return; // length, logical-link control. // FIXME: parse
+	else if (ethertype <= 1536)
+		throw format_exception("invalid protocol 0x%x in %s header (should not have this value)", ethertype, curname);
+
+	switch(ethertype)
+	{
+		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
+		case(ETHERTYPE_IPV6): parse_ipv6(next, end); break;
+		case(ETHERTYPE_VLAN): parse_vlan(next, end); break;
+		case(ETHERTYPE_IPX): /* ipx */ break;
+		case(ETHERTYPE_ARP): /* arp */ break;
+		case(ETHERTYPE_LOOPBACK): /* Loopback (Configuration Test Protocol) */ break;
+		case(ETH_P_PPP_SES): parse_pppoe(next, end); break; /* PPPoE */
+		case(0x88CC): /* LLDP */ break;
+		case(0x6002): /* DEC DNA Remote Console */ break;
+		default:
+			throw format_exception("invalid protocol 0x%x in %s header", ethertype, curname);
+	}
+}
+
 void packet_t::parse_cooked(const u_char *begin, const u_char *end)
 {
 	if ((size_t)(end-begin) < sizeof(sll_header))
@@ -111,15 +143,7 @@ void packet_t::parse_cooked(const u_char *begin, const u_char *end)
 	add_layer(layer_cooked, begin, end);
 
 	const u_char *next = begin + sizeof(hdr);
-	switch(ntohs(hdr.sll_protocol))
-	{
-		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
-		case(ETHERTYPE_IPV6): parse_ipv6(next, end); break;
-		case(ETHERTYPE_ARP): /* arp */ break;
-		case(0x88CC): /* LLDP */ break;
-		default:
-			throw format_exception("invalid protocol 0x%x in cooked header", ntohs(hdr.sll_protocol));
-	}
+	parse_next_ethertype(ntohs(hdr.sll_protocol), next, end, "cooked");
 }
 
 void packet_t::parse_ethernet(const u_char *begin, const u_char *end)
@@ -133,14 +157,39 @@ void packet_t::parse_ethernet(const u_char *begin, const u_char *end)
 	add_layer(layer_ethernet, begin, end);
 
 	const u_char *next = begin + sizeof(hdr);
-	switch(ntohs(hdr.ether_type))
+	parse_next_ethertype(ntohs(hdr.ether_type), next, end, "ether");
+}
+
+void packet_t::parse_vlan(const u_char *begin, const u_char *end)
+{
+	const size_t vlan_size = 4;
+	if ((size_t)(end-begin) < vlan_size)
+		throw format_exception("packet has %d bytes, but need %d for vlan header",
+				end-begin, vlan_size);
+
+	const uint16_t *hdr = reinterpret_cast<const uint16_t *>(begin);
+
+	const u_char *next = begin + vlan_size;
+	parse_next_ethertype(ntohs(hdr[1]), next, end, "vlan");
+}
+
+void packet_t::parse_pppoe(const u_char *begin, const u_char *end)
+{
+	const size_t pppoe_size = 8; //PPPOE 6, PPP 2
+	if ((size_t)(end-begin) < pppoe_size)
+		throw format_exception("packet has %d bytes, but need %d for pppoe header",
+				end-begin, pppoe_size);
+
+	add_layer(layer_pppoe, begin, end);
+	const uint16_t *hdr = reinterpret_cast<const uint16_t *>(begin + 6);
+	const u_char *next = begin + pppoe_size;
+	switch(ntohs(*hdr))
 	{
-		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
-		case(ETHERTYPE_IPV6): parse_ipv6(next, end); break;
-		case(ETHERTYPE_ARP): /* arp */ break;
-		case(0x88CC): /* LLDP */ break;
+		case(PPP_IP):
+			parse_ipv4(next,end);
+			break;
 		default:
-			throw format_exception("invalid ether_type 0x%x in ethernet header", ntohs(hdr.ether_type));
+			throw format_exception("unsupported ppp type %d in ppp header", hdr);
 	}
 }
 
@@ -174,6 +223,11 @@ void packet_t::parse_ipv4(const u_char *begin, const u_char *end)
 		case(IPPROTO_UDP): parse_udp(next, nend); break;
 		case(IPPROTO_IGMP): break; // internet group management protocol
 		case(IPPROTO_ICMP): add_layer(layer_icmp, next, nend); break;
+		case(IPPROTO_GRE): add_layer(layer_gre, next, nend); break; // FIXME Generic routing encapsulation could contain IP{4,6}
+		case(IPPROTO_SCTP): add_layer(layer_sctp, next, nend); break; //FIXME SCTP handling
+		case(88): break; //EIGRP Enhanced Interior Gateway Routing Protocol
+		case(89): break; //OSPF
+		case(IPPROTO_IPV6): parse_ipv6(next,nend); break;
 		default:
 			throw format_exception("unsupported protocol %d in ip header", hdr.protocol);
 	}
@@ -302,6 +356,9 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 			}
 			break;
 		case(layer_icmp): os << "icmp"; break;
+		case(layer_gre): os << "gre"; break;
+		case(layer_sctp): os << "sctp"; break;
+		case(layer_pppoe): os << "pppoe"; break;
 		case(layer_data):
 			{
 				os << "data[" << l.size() << ']';
