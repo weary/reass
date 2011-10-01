@@ -20,6 +20,7 @@ class my_packet_listener_t : public packet_listener_t
 
 void printhelp(const char *argv0)
 {
+	printf("\nreassemble tcp streams and discard\n\n");
 	printf("%s [--live <device>] [--bpf <bpf>] [pcaps]\n", basename(argv0));
 }
 

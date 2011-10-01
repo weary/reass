@@ -10,3 +10,6 @@ target_link_libraries(pcap_manual_reorder reass)
 
 add_executable(reass_printall reass_printall.cpp)
 target_link_libraries(reass_printall reass)
+
+add_executable(reass_monitor_packetloss reass_monitor_packetloss.cpp)
+target_link_libraries(reass_monitor_packetloss reass)

@@ -83,6 +83,9 @@ public:
 
 	void print(std::ostream &os) const;
 
+	ip_address_t from() const { return d_src; }
+	ip_address_t to() const { return d_dst; }
+
 protected: // internal
 	void accept_packet(packet_t *p, const layer_t *tcplay);
 	void find_relyable_startseq(const tcphdr &hdr);
