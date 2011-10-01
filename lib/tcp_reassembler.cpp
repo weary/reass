@@ -248,7 +248,7 @@ bool tcp_stream_t::is_reasonable_seq(seq_nr_t seq)
 {
 	if (!d_trust_seq) return true; // could be
 
-	const uint32_t cutoff = 1024*1024; // 1MB
+	const uint32_t cutoff = 4*1024*1024; // 4MB
 
 	return
 		seq_nr_t(d_next_seq.d_val - cutoff) < seq &&
