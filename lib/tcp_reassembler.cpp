@@ -236,7 +236,7 @@ void tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 		d_delayed.insert(delayed_t::value_type(seq, packet));
 
 	// fallback, don't queue too much
-	if (d_delayed.size() > 16)
+	if (d_delayed.size() > MAX_DELAYED_PACKETS)
 	{
 		d_trust_seq = true; // if this wasn't set yet, it was seriously screwed up
 		check_delayed(true);
@@ -413,7 +413,7 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 	assert(tcplay);
 
 	tcp_stream_t *r = claim();
-	auto_release_t<tcp_stream_t> releaser(r);
+	auto_release_t<tcp_stream_t> releaser(r); // make sure it will be released if we don't use it
 
 	r->set_src_dst_from_packet(packet, false);
 	std::pair<stream_set_t::iterator,bool> ituple = d_streams.insert(*r);

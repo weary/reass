@@ -10,7 +10,7 @@
 // increasing this costs some memory per packet
 #define MAX_LAYERS 8
 
-// undefine this to save one function call, but violate c++ specs
+// undefine this to save one function call per packet, but violate c++ specs
 #define NO_MEMBER_CALLBACK
 
 // if NO_REUSE is defined, we will not re-use memory internally, but rely
@@ -24,5 +24,8 @@
 
 // if defined print per-pcap statistics
 //#define PRINT_STATS
+
+// number of packets to wait in a stream before accepting we missed something
+#define MAX_DELAYED_PACKETS 16
 
 #endif // __REASS_CONFIG_H__
