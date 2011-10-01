@@ -19,7 +19,7 @@ class tcphdr;
 
 struct seq_nr_t
 {
-	seq_nr_t() {}
+	seq_nr_t() : d_val(0) {}
 	seq_nr_t(uint32_t val) : d_val(val) {}
 
 	uint32_t d_val;
@@ -30,6 +30,10 @@ inline bool operator <(const seq_nr_t &l, const seq_nr_t &r)
 	int32_t diff = l.d_val - r.d_val;
 	return diff < 0;
 }
+
+inline bool operator ==(const seq_nr_t &l, uint32_t r) { return l.d_val == r; }
+inline bool operator !=(const seq_nr_t &l, uint32_t r) { return l.d_val != r; }
+
 std::ostream &operator <<(std::ostream &os, const seq_nr_t &s);
 
 typedef boost::intrusive::unordered_set_base_hook<
@@ -93,6 +97,7 @@ protected: // internal
 
 	bool d_trust_seq;
 	seq_nr_t d_next_seq;
+	seq_nr_t d_smallest_ack; // used to detect packet loss in first packets
 	bool d_have_accepted_end;
 
 	tcp_stream_t *d_partner;

@@ -193,18 +193,12 @@ void tcp_stream_t::find_relyable_startseq(const tcphdr &hdr)
 	}
 	else
 	{
-		seq_nr_t seq = htonl(hdr.seq);
-		if (d_delayed.empty())
-			d_next_seq = seq; // first guess at correct seq
+		if (d_next_seq == 0 || seq <= d_next_seq) // wait until sequence numbers are increasing
+			d_next_seq = seq;
 		else
 		{
-			if (seq <= d_next_seq) // wait until sequence numbers are increasing
-				d_next_seq = seq;
-			else
-			{
-				d_trust_seq = true;
-				check_delayed();
-			}
+			d_trust_seq = true;
+			check_delayed();
 		}
 	}
 }
@@ -222,6 +216,13 @@ void tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 
 	if (!d_trust_seq) // check if we already have a starting packet
 		find_relyable_startseq(hdr);
+
+	if (!d_partner)
+	{
+		seq_nr_t ack(htonl(hdr.ack_seq));
+		if (d_smallest_ack == 0 || ack < d_smallest_ack)
+			d_smallest_ack = ack;
+	}
 
 	seq_nr_t seq(htonl(hdr.seq));
 	// if we know where the packet should go -> do it
@@ -464,6 +465,11 @@ void tcp_stream_t::set_partner(tcp_stream_t *other)
 	d_partner = other;
 	other->d_partner = this;
 	other->check_delayed();
+
+	// if the other side has a reasonable guess at our sequence numbers, use it
+	if (!d_trust_seq && other->d_smallest_ack != 0 &&
+			(d_next_seq == 0 || d_next_seq < other->d_smallest_ack))
+		d_next_seq = other->d_smallest_ack;
 }
 
 void tcp_reassembler_t::set_now(uint64_t now)

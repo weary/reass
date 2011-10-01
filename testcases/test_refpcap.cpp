@@ -197,6 +197,27 @@ BOOST_AUTO_TEST_CASE(ipv4_nosynfin)
 	BOOST_CHECK(compare(listener.d_loss, plossref));
 }
 
+BOOST_AUTO_TEST_CASE(ipv4packetloss)
+{
+	plossmap_t plossref;
+	plossref["192.168.9.2:2003 -> 192.168.9.3:48273"] = 1794;
+	plossref["192.168.9.3:60254 -> 192.168.9.2:2001"] = 1024;
+	plossref["192.168.9.3:47263 -> 192.168.9.2:2002"] = 1024;
+
+	hashing_listener_t listener;
+	pcap_reader_t reader(&listener);
+	// filter out packet 19
+	reader.read_file("ref.pcap",
+			"(tcp[4:4] != 0x1cc54b15 or tcp[8:4] != 0xb2d1b1d4) and "
+			"(tcp[4:4] != 0xb25c39a8 or tcp[8:4] != 0x1d30d764) and"
+			"(tcp[4:4] != 0xb266a372 or tcp[8:4] != 0x00000000) and"
+			"(tcp[4:4] != 0xb266a373 or tcp[8:4] != 0x1ca0e26a)"
+			);
+	reader.flush();
+
+	BOOST_CHECK(compare(listener.d_loss, plossref));
+}
+
 
 BOOST_AUTO_TEST_CASE(ipv6)
 {
