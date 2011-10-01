@@ -12,8 +12,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "free_list.h"
-
-#define MAX_LAYERS 8
+#include "config.h"
 
 enum layer_type
 {
@@ -23,11 +22,8 @@ enum layer_type
 	layer_ipv6, // ip6_hdr
 	layer_tcp, // tcphdr
 	layer_udp, // udphdr
-	layer_icmp,
-	layer_gre,
-	layer_sctp,
 	layer_pppoe,
-	layer_data
+	layer_data // content
 };
 
 struct layer_t
@@ -54,7 +50,27 @@ protected:
 };
 std::ostream &operator <<(std::ostream &os, const layer_t &l);
 
-// note: packet_t's get recycled, never delete, use ->release()
+// caught by pcap_parser, not seen outside reass
+struct unknown_layer_t : public std::exception
+{
+	unknown_layer_t(uint32_t next, const char *cur) throw() : d_next(next), d_cur(cur) {}
+	virtual ~unknown_layer_t() throw() {}
+
+	virtual const char* what() const throw()
+	{
+		static char buf[256];
+		sprintf(buf, "unsupported protocol 0x%x in %s header", d_next, d_cur);
+		return buf;
+	}
+
+protected:
+	uint32_t d_next;
+	const char *d_cur;
+};
+
+// note: packet_t memory will get reused if ->release() is called
+//       call delete to remove a packet from the pool.
+//       only call release from the same thread.
 struct packet_t : public free_list_member_t<packet_t>
 {
 	packet_t(packet_t *&free_head);
@@ -90,7 +106,6 @@ struct packet_t : public free_list_member_t<packet_t>
 		if (d_pcap_buf)
 			::memset(d_pcap_buf, 'Y', d_pcap_bufsize);
 		::memset(d_layers, 'Y', MAX_LAYERS*sizeof(layer_t));
-		//d_packetnr = (uint64_t)-1;
 		d_is_initialised = 2;
 #endif //DEBUG
 		free_list_member_t<packet_t>::release();
@@ -106,11 +121,13 @@ struct packet_t : public free_list_member_t<packet_t>
 	const u_char *data() const { return d_pcap; }
 	const pcap_pkthdr &pckthdr() const { return d_pckthdr; }
 
+	// give up on using libpcap's buffer and copy packet to local buffer
 	void copy_data();
 
 	void add_layer(layer_type, const u_char *begin, const u_char *end);
 protected:
 	void parse_next_ethertype(uint16_t ethertype, const u_char *next, const u_char *end, const char *curname);
+	void parse_next_ip_protocol(uint8_t ethertype, const u_char *next, const u_char *end, const char *curname);
 
 	uint64_t d_packetnr;
 	struct pcap_pkthdr d_pckthdr; // contains ts/caplen/len
@@ -120,6 +137,7 @@ protected:
 	uint32_t d_pcap_bufsize; // number of allocated bytes in d_pcap_buf
 	uint32_t d_pcap_size; // at least caplen, number of valid bytes at *d_pcap
 
+	// set to false on release, so pcap_reader can track if someone is still using libpcap's copy of the packet
 	bool *d_still_must_copy_data;
 
 	uint32_t d_layercount;

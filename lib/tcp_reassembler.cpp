@@ -6,10 +6,11 @@
 #include "tcp_reassembler.h"
 #include "packet_listener.h"
 #include "shared/misc.h"
+#include "config.h"
 #include <boost/static_assert.hpp>
-#include "netinet/ip.h"
-#include "netinet/ip6.h"
-#include "netinet/tcp.h"
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <netinet/tcp.h>
 
 BOOST_STATIC_ASSERT(offsetof(sockaddr_in,sin_port) == offsetof(sockaddr_in6,sin6_port));
 BOOST_STATIC_ASSERT(sizeof(ip_address_t) == sizeof(sockaddr_in6));
@@ -398,7 +399,7 @@ tcp_reassembler_t::tcp_reassembler_t(packet_listener_t *listener) :
 
 tcp_reassembler_t::~tcp_reassembler_t()
 {
-#if !defined(NO_REUSE) and defined(DEBUG)
+#if !defined(NO_REUSE) and defined(DEBUG) and defined(PRINT_STATS)
 	printf("max %d tcp_stream_t's in use\n", objectcount());
 #endif
 	flush();

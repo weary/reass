@@ -5,9 +5,10 @@
 
 #include "pcap_reader.h"
 #include "packet_listener.h"
-#include "shared/misc.h"
 #include "tcp_reassembler.h"
-#include "boost/scope_exit.hpp"
+#include "config.h"
+#include "shared/misc.h"
+#include <boost/scope_exit.hpp>
 
 struct udp_reassembler_t
 {
@@ -44,10 +45,12 @@ pcap_reader_t::~pcap_reader_t()
 
 	if (d_pcap) close_live_capture();
 
+#ifdef PRINT_STATS
 	printf("saw %ld packets\n", d_packetnr);
 #if !defined(NO_REUSE) and defined(DEBUG)
 	printf("max %d packet_t's in use\n", objectcount());
 #endif
+#endif // PRINT_STATS
 
 	delete d_tcp_reassembler; d_tcp_reassembler = NULL;
 	delete d_udp_reassembler; d_udp_reassembler = NULL;
@@ -174,6 +177,14 @@ void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *d
 			d_udp_reassembler->process(packet);
 		else // don't know. just pass on packet
 			d_listener->accept(packet);
+	}
+	catch(const unknown_layer_t &e)
+	{
+#ifdef UNKNOWN_LAYER_AS_ERROR
+		d_listener->accept_error(packet, e.what());
+#else
+		packet->release();
+#endif
 	}
 	catch(const std::exception &e)
 	{

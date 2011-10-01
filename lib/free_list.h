@@ -8,8 +8,7 @@
 
 #include <boost/noncopyable.hpp>
 #include <assert.h>
-
-//#define NO_REUSE
+#include "config.h"
 
 template<typename T>
 struct free_list_member_t : public boost::noncopyable

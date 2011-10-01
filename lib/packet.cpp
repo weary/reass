@@ -58,10 +58,14 @@ void packet_t::init(
 		case(DLT_LINUX_SLL):
 			parse_cooked(d_pcap, d_pcap + caplen);
 			break;
+		case(DLT_RAW):
+			if (caplen > 0 && (d_pcap[0] >> 4) == 6)
+				parse_ipv6(d_pcap, d_pcap + caplen);
+			else
+				parse_ipv4(d_pcap, d_pcap + caplen);
+			break;
 		case(18): // FIXME 18 only defined for openbsd, while this seems to be another DLT_RAW
 			parse_ipv4(d_pcap, d_pcap + caplen);
-			break;
-		case(DLT_MTP2): // Message Transfer Part Level 2
 			break;
 		default:
 			throw format_exception("unsupported linktype %d", linktype);
@@ -111,8 +115,8 @@ void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end
 void packet_t::parse_next_ethertype(uint16_t ethertype,
 		const u_char *next, const u_char *end, const char *curname)
 {
-	if (ethertype < 1500)
-		return; // length, logical-link control. // FIXME: parse
+	if (ethertype <= 1500)
+		throw unknown_layer_t(ethertype, curname); // length, next layer is logical-link control
 	else if (ethertype <= 1536)
 		throw format_exception("invalid protocol 0x%x in %s header (should not have this value)", ethertype, curname);
 
@@ -121,14 +125,10 @@ void packet_t::parse_next_ethertype(uint16_t ethertype,
 		case(ETHERTYPE_IP): parse_ipv4(next, end); break;
 		case(ETHERTYPE_IPV6): parse_ipv6(next, end); break;
 		case(ETHERTYPE_VLAN): parse_vlan(next, end); break;
-		case(ETHERTYPE_IPX): /* ipx */ break;
-		case(ETHERTYPE_ARP): /* arp */ break;
-		case(ETHERTYPE_LOOPBACK): /* Loopback (Configuration Test Protocol) */ break;
-		case(ETH_P_PPP_SES): parse_pppoe(next, end); break; /* PPPoE */
-		case(0x88CC): /* LLDP */ break;
-		case(0x6002): /* DEC DNA Remote Console */ break;
+		case(ETH_P_PPP_SES): parse_pppoe(next, end); break;
+
 		default:
-			throw format_exception("invalid protocol 0x%x in %s header", ethertype, curname);
+			throw unknown_layer_t(ethertype, curname);
 	}
 }
 
@@ -189,7 +189,20 @@ void packet_t::parse_pppoe(const u_char *begin, const u_char *end)
 			parse_ipv4(next,end);
 			break;
 		default:
-			throw format_exception("unsupported ppp type %d in ppp header", hdr);
+			throw unknown_layer_t(ntohs(*hdr), "ppp");
+	}
+}
+
+void packet_t::parse_next_ip_protocol(uint8_t protocol, const u_char *next, const u_char *nend, const char *curname)
+{
+	switch(protocol)
+	{
+		case(IPPROTO_TCP): parse_tcp(next, nend); break;
+		case(IPPROTO_UDP): parse_udp(next, nend); break;
+		case(IPPROTO_IPV6): parse_ipv6(next,nend); break;
+
+		default:
+			throw unknown_layer_t(protocol, curname);
 	}
 }
 
@@ -213,24 +226,15 @@ void packet_t::parse_ipv4(const u_char *begin, const u_char *end)
 	assert(sizeof(iphdr) <= hdrsize);
 	add_layer(layer_ipv4, begin, end);
 
-	// FIXME: fragments
+	const uint16_t fragment_offset_mask = (1<<13)-1;
+	uint16_t frag_off = 8*(htons(hdr.frag_off) & fragment_offset_mask);
+	bool more_fragments = (htons(hdr.frag_off) >> 13) & 1;
+	if (more_fragments || frag_off)
+		throw format_exception("fragments not supported");
 
 	const u_char *next = begin + hdr.ihl*4;
 	const u_char *nend = std::min<const u_char *>(end, next + payload);
-	switch(hdr.protocol)
-	{
-		case(IPPROTO_TCP): parse_tcp(next, nend); break;
-		case(IPPROTO_UDP): parse_udp(next, nend); break;
-		case(IPPROTO_IGMP): break; // internet group management protocol
-		case(IPPROTO_ICMP): add_layer(layer_icmp, next, nend); break;
-		case(IPPROTO_GRE): add_layer(layer_gre, next, nend); break; // FIXME Generic routing encapsulation could contain IP{4,6}
-		case(IPPROTO_SCTP): add_layer(layer_sctp, next, nend); break; //FIXME SCTP handling
-		case(88): break; //EIGRP Enhanced Interior Gateway Routing Protocol
-		case(89): break; //OSPF
-		case(IPPROTO_IPV6): parse_ipv6(next,nend); break;
-		default:
-			throw format_exception("unsupported protocol %d in ip header", hdr.protocol);
-	}
+	parse_next_ip_protocol(hdr.protocol, next, nend, "ip");
 }
 
 void packet_t::parse_ipv6(const u_char *begin, const u_char *end)
@@ -254,13 +258,7 @@ void packet_t::parse_ipv6(const u_char *begin, const u_char *end)
 	if (next + payloadlen > end)
 		throw format_exception("missing bytes from ipv6 field, have %d, need %d", end - next, payloadlen);
 
-	uint8_t protocol = hdr.ip6_nxt;
-	switch(protocol)
-	{
-		case(IPPROTO_TCP): parse_tcp(next, next + payloadlen); break;
-		default:
-			throw format_exception("unsupported protocol %d in ipv6 header", protocol);
-	}
+	parse_next_ip_protocol(hdr.ip6_nxt, next, next + payloadlen, "ipv6");
 }
 
 void packet_t::parse_tcp(const u_char *begin, const u_char *end)
@@ -355,9 +353,6 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 				os << "udp[" << htons(hdr.source) << "-" << htons(hdr.dest) << ']';
 			}
 			break;
-		case(layer_icmp): os << "icmp"; break;
-		case(layer_gre): os << "gre"; break;
-		case(layer_sctp): os << "sctp"; break;
 		case(layer_pppoe): os << "pppoe"; break;
 		case(layer_data):
 			{

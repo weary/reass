@@ -8,10 +8,9 @@
 
 #include "packet_listener.h"
 #include "free_list.h"
+#include "config.h"
 #include <string>
 #include <pcap.h>
-
-#define NO_MEMBER_CALLBACK
 
 struct tcp_reassembler_t;
 struct udp_reassembler_t;
