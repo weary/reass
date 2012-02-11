@@ -7,13 +7,13 @@
 #include "packet_listener.h"
 #include "shared/misc.h"
 #include "config.h"
-#include <boost/static_assert.hpp>
+#include <boost/version.hpp>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 
-BOOST_STATIC_ASSERT(offsetof(sockaddr_in,sin_port) == offsetof(sockaddr_in6,sin6_port));
-BOOST_STATIC_ASSERT(sizeof(ip_address_t) == sizeof(sockaddr_in6));
+static_assert(offsetof(sockaddr_in,sin_port) == offsetof(sockaddr_in6,sin6_port), "ipv4 and ipv6 port number alignment broken");
+static_assert(sizeof(ip_address_t) == sizeof(sockaddr_in6), "structure size broken");
 
 std::ostream &operator <<(std::ostream &os, const seq_nr_t &s)
 {
