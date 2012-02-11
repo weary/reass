@@ -12,6 +12,7 @@
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 
+static_assert(BOOST_VERSION != 104800, "bug 6153 in boost::intrusive in boost 1.48 prevents compilation");  // see https://svn.boost.org/trac/boost/ticket/6153
 static_assert(offsetof(sockaddr_in,sin_port) == offsetof(sockaddr_in6,sin6_port), "ipv4 and ipv6 port number alignment broken");
 static_assert(sizeof(ip_address_t) == sizeof(sockaddr_in6), "structure size broken");
 
