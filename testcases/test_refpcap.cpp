@@ -188,10 +188,10 @@ BOOST_AUTO_TEST_CASE(ipv4_nosynfin)
 	for (uint64_t ts = now; ts < now + 60; ++ts)
 	{
 		tcp_reass->set_now(ts);
-		BOOST_CHECK_LT(listener.d_out.size(), 6);
+		BOOST_CHECK_LT(listener.d_out.size(), (size_t)6);
 	}
 	tcp_reass->set_now(now + 60 + gran);
-	BOOST_CHECK_EQUAL(listener.d_out.size(), 6);
+	BOOST_CHECK_EQUAL(listener.d_out.size(), (size_t)6);
 
 	BOOST_CHECK(compare(listener.d_out, reference));
 	BOOST_CHECK(compare(listener.d_loss, plossref));
