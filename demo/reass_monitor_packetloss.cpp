@@ -12,48 +12,6 @@
 
 class packet_listener_t;
 
-struct stream_t
-{
-	stream_t(tcp_stream_t *stream) :
-		d_prefix(stream->initiator() ? "i" : "r")
-	{
-	}
-
-	~stream_t() {}
-
-	void accept_tcp(packet_t *packet, int packetloss)
-	{
-		auto_release_t<packet_t> releaser(packet);
-		if (packet)
-		{
-			layer_t *toplayer = packet->layer(-1);
-			if (!toplayer || toplayer->type() != layer_data)
-				return;
-
-			d_data.append((const char *)toplayer->begin(), toplayer->size());
-
-			// find eol and print
-			while (1)
-			{
-				std::string::size_type i = d_data.find('\n');
-				if (i == std::string::npos)
-					break;
-
-				printf("%s: %s\n", d_prefix.c_str(), d_data.substr(0, i).c_str());
-				d_data = d_data.substr(i+1);
-			}
-		}
-		else
-		{
-			if (!d_data.empty())
-				printf("%s: %s\n", d_prefix.c_str(), d_data.c_str());
-		}
-	}
-
-protected:
-	std::string d_prefix, d_data;
-};
-
 class my_packet_listener_t : public packet_listener_t
 {
 public:
