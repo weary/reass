@@ -1,0 +1,99 @@
+
+Introduction
+------------
+
+Reass is a library to reconstruct streams from pcap/packet data,
+dealing as best as possible with packet loss.
+
+The library is written with performance in mind, gradually reducing
+performance if the data gets worse. For perfect pcap's (without any
+packet loss or out-of-order packets) the memory footprint only
+consists of a table of tcp-streams, but when packet loss occurs extra
+packets are stored in memory to wait for missing packets to arrive.
+The library performs in amortised-constant time (a hash table is used
+to find streams with packets, but all other operations are O(1)).
+
+
+Usage
+-----
+
+Override packet_listener_t and implement functions for the data you
+are interested in.
+
+accept_tcp(..) is called for tcp-packets, accept_udp(..) is called for
+udp_packets and accept(..) will get all other packets. If the packet
+somehow fails to parse it is passed to accept_error(..), the most
+likely reason this happens is because the used protocol is unknown.
+This error can be surpressed by commenting UNKNOWN_LAYER_AS_ERROR in
+lib/config.h.
+
+Check the demo and testcases directory for examples.
+
+
+packet_t
+~~~~~~~~
+
+Reass parses the known layers(ethernet, ip, tcp, etc) for every
+packet. Layer offsets are stored in the layer_t structure inside the
+packet_t. These layers can be inspected with packet->layer(idx).
+
+Actual content of packets is in the data layer, if
+packet->layer(-1).type() == layer_data you have a packet with content.
+The content can be extracted using the data() and size() members of
+the layer. All other layers can be accessed in the same manner, the
+memory should be casted to the correct struct for easy access (see the
+layer_type enum in packet.h for an overview).
+
+
+Tcp-reassembly
+~~~~~~~~~~~~~~
+
+If reass finds a tcp-layer in a packet, it will try to re-order
+packets into the original tcp order and group the packets into
+streams. After re-ordering packets are passed to the listener's
+accept_tcp function (which you have subclassed).
+
+Reass will not pass packets to accept_tcp until after both sides of a
+stream have been seen (or we gave up waiting), so
+stream->have_partner() is already reliable on the first packet.
+
+Normal flow
+^^^^^^^^^^^
+The re-ordering works according to this pseudo-code:
+
+Does the incoming packet belong to an existing stream and is it (as
+far as we can tell) the next packet, OR is it a SYN-packet and
+have we seen the other side of the stream (ie, is partner found)? +
+-> pass packet to accept_tcp +
+Otherwise +
+-> delay packet until missing packets have been seen
+
+Delayed packets
+^^^^^^^^^^^^^^^
+Packets are delayed up to MAX_DELAYED_PACKETS per stream, if this maximum is reached accept_tcp is called with the oldest queued packet and the packetloss-field set to the number of missing bytes from the stream. If a packet is received after we have accepted it as lost, it is still passed to accept_tcp, but with an empty data layer. This means that you still get all packets when writing out packets, but no out-of-order data is seen when appending tcp-content from the stream.
+
+MAX_DELAYED_PACKETS can be configured in lib/config.h, and defaults to 16
+
+Timeouts
+^^^^^^^^
+Tcp streams are considered closed 60 seconds after a FIN or RST packet
+has been seen, accept_tcp will be called with a null-packet after this
+timeout elapses. If no packet has been seen for the last 10 minutes a
+stream is also closed. Note that timeouts are not exact, and it might
+take a few more seconds than specified here (upto 8 seconds).
+
+Quick port reuse
+^^^^^^^^^^^^^^^^
+When a hole of more than 4MB of packet loss is detected, the library assumes the old connection was lost and a new connection is re-using the same port numbers. accept_tcp will be called as if the old connection was closed and a new one opened.
+
+
+Memory-management
+-----------------
+
+For efficiency malloc/free usage is kept to a minimum, as memory allocation is expensive and would really slow us down.
+
+When the library needs memory it first checks if it can re-use any already allocated memory, and only if that pool is exhausted new memory is allocated. Memory is never freed for as long as the main object(pcap_reader_t) exist.
+Note that you should never delete a packet directly but always call ->release() on it, to tell the library the packet's memory can be re-used.
+Reass does not copy data if at all possible, so all data is returned as pointers into the packet's buffer. These pointers are all invalidated after release() is called on the packet.
+
+
