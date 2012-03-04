@@ -8,8 +8,8 @@
 
 #include "packet.h"
 
-class tcp_stream_t;
-class udp_stream_t;
+struct tcp_stream_t;
+struct udp_stream_t;
 
 class packet_listener_t
 {

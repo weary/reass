@@ -12,9 +12,9 @@
 #include <vector>
 #include <map>
 
-class packet_t;
+struct packet_t;
 class packet_listener_t;
-class layer_t;
+struct layer_t;
 class tcphdr;
 
 struct seq_nr_t
@@ -52,7 +52,7 @@ struct tcp_stream_t :
 
 	void release(); // destructor
 protected: // called from tcp_reassembler_t
-	friend class tcp_reassembler_t;
+	friend struct tcp_reassembler_t;
 
 	void set_src_dst_from_packet(const packet_t *packet, bool swap); // constructor(1/2)
 	void init(packet_listener_t *listener); // constructor(2/2), will not touch src/dst

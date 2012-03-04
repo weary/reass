@@ -8,7 +8,6 @@
 #include "tcp_reassembler.h"
 #include "config.h"
 #include "shared/misc.h"
-#include <boost/scope_exit.hpp>
 
 struct udp_reassembler_t
 {
@@ -29,6 +28,17 @@ struct udp_reassembler_t
 protected:
 	packet_listener_t *d_listener;
 };
+
+namespace
+{
+struct pcap_close_guard_t
+{
+	pcap_close_guard_t(pcap_t *&pcap) : d_pcap(pcap) {}
+	~pcap_close_guard_t() { if (d_pcap) { pcap_close(d_pcap); d_pcap = nullptr; } }
+	pcap_t *&d_pcap;
+};
+
+}; // end of nameless namespace
 
 pcap_reader_t::pcap_reader_t(packet_listener_t *listener) :
 	free_list_container_t<packet_t>(0),
@@ -66,10 +76,7 @@ void pcap_reader_t::read_file(const std::string &fname, const std::string &bpf)
 	if (!d_pcap)
 		throw format_exception("Could not open pcap '%s', %s", fname.c_str(), errbuf);
 
-	BOOST_SCOPE_EXIT((&d_pcap))
-	{
-		if (d_pcap) { pcap_close(d_pcap); d_pcap = NULL; }
-	} BOOST_SCOPE_EXIT_END;
+	pcap_close_guard_t closeguard(d_pcap);
 
 	set_bpf(bpf);
 

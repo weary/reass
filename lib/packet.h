@@ -42,7 +42,7 @@ struct layer_t
 	}
 
 protected:
-	friend class packet_t;
+	friend struct packet_t;
 
 	const u_char *d_begin;
 	const u_char *d_end;
