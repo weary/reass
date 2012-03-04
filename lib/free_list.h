@@ -9,6 +9,11 @@
 #include <boost/noncopyable.hpp>
 #include <assert.h>
 #include "config.h"
+#include "force_inline.h"
+
+// FIXME: could re-write this to use intrusive's slist,
+// and replace the d_delayed multimap with a sorted list
+// (could use same storage that way)
 
 template<typename T>
 struct free_list_member_t : public boost::noncopyable
@@ -121,7 +126,7 @@ template<typename T>
 struct auto_release_t
 {
 	auto_release_t(T *t) : d_t(t) {}
-	~auto_release_t() { if (d_t) d_t->release(); }
+	FORCE_INLINE ~auto_release_t() { if (d_t) d_t->release(); }
 
 	void do_not_release() { d_t = NULL; }
 protected:
