@@ -82,6 +82,11 @@ timeout elapses. If no packet has been seen for the last 10 minutes a
 stream is also closed. Note that timeouts are not exact, and it might
 take a few more seconds than specified here (upto 8 seconds).
 
+Time never moves backwards! Timeouts are set using the latest
+timestamp seen so far, if your packetdata has timestamps that move
+backwards this timeouts will not happen until time is progressing
+again.
+
 Quick port reuse
 ^^^^^^^^^^^^^^^^
 When a hole of more than 4MB of packet loss is detected, the library assumes the old connection was lost and a new connection is re-using the same port numbers. accept_tcp will be called as if the old connection was closed and a new one opened.

@@ -62,7 +62,7 @@ protected: // called from tcp_reassembler_t
 	void add(packet_t *packet, const layer_t *tcplay);
 
 	template<typename TO>
-	void set_timeout(TO &to);
+	void set_timeout(TO &to) throw();
 
 	// return true if it is likely that seq belongs to this stream (to determine port-reuse)
 	bool is_reasonable_seq(seq_nr_t seq);

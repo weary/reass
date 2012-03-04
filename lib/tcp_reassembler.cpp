@@ -86,7 +86,7 @@ std::ostream &operator <<(std::ostream &os, const timeval &tv)
 }
 
 template<typename TO>
-void tcp_stream_t::set_timeout(TO &to)
+void tcp_stream_t::set_timeout(TO &to) throw()
 {
 	bool use_short = d_have_accepted_end;
 	uint64_t r = d_highest_ts.tv_sec;
