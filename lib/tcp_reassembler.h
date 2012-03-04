@@ -3,10 +3,14 @@
  */
 
 
+#ifndef __REASS_TCP_REASSEMBLER_H__
+#define __REASS_TCP_REASSEMBLER_H__
+
 #include "uint128.h"
 #include "ip_address.h"
 #include "free_list.h"
 #include "timeout.h"
+#include "common_reassembler.h"
 #include <boost/functional/hash/hash.hpp>
 #include <boost/intrusive/unordered_set.hpp>
 #include <vector>
@@ -43,7 +47,7 @@ typedef boost::intrusive::unordered_set_base_hook<
 	> unordered_member_t;
 
 struct tcp_stream_t :
-	public free_list_member_t<tcp_stream_t>,
+	public common_stream_t<tcp_stream_t>,
 	public doublelinked_hook_t,
 	public unordered_member_t
 {
@@ -53,11 +57,12 @@ struct tcp_stream_t :
 	void release(); // destructor
 protected: // called from tcp_reassembler_t
 	friend struct tcp_reassembler_t;
+	typedef common_stream_t<tcp_stream_t> common_t;
 
 	void set_src_dst_from_packet(const packet_t *packet, bool swap); // constructor(1/2)
 	void init(packet_listener_t *listener); // constructor(2/2), will not touch src/dst
 
-	void set_partner(tcp_stream_t *partner);
+	void found_partner(tcp_stream_t *partner);
 
 	void add(packet_t *packet, const layer_t *tcplay);
 
@@ -71,20 +76,10 @@ protected: // called from tcp_reassembler_t
 	static tcp_stream_t *partner_destroyed() { return (tcp_stream_t*)-2; }
 
 public:
-	void set_userdata(void *userdata) { d_userdata = userdata; }
-	void *userdata() const { return d_userdata; }
 	bool closed() const { return d_have_accepted_end; }
-
-	tcp_stream_t *partner() const { assert(have_partner()); return d_partner; }
-	bool have_partner() const { return d_partner && d_partner != no_partner() && d_partner != partner_destroyed(); }
 
 	bool initiator() const { assert(d_direction == direction_initiator || d_direction == direction_responder); return d_direction == direction_initiator; }
 	bool responder() const { return !initiator(); }
-
-	void print(std::ostream &os) const;
-
-	ip_address_t from() const { return d_src; }
-	ip_address_t to() const { return d_dst; }
 
 protected: // internal
 	void accept_packet(packet_t *p, const layer_t *tcplay);
@@ -93,24 +88,18 @@ protected: // internal
 	void find_direction(packet_t *packet, const layer_t *tcplay);
 	void flush();
 
-	packet_listener_t *d_listener;
-
-	ip_address_t d_src;
-	ip_address_t d_dst;
-
 	bool d_trust_seq;
 	seq_nr_t d_next_seq;
 	seq_nr_t d_smallest_ack; // used to detect packet loss in first packets
 	bool d_have_accepted_end;
 
-	tcp_stream_t *d_partner;
 	enum direction_t { direction_unknown, direction_initiator, direction_responder };
 	direction_t d_direction;
 
-	void *d_userdata;
-
 	timeval d_highest_ts;
 
+	// FIXME: this is a really small multimap,
+	// a sorted list probably has the same performance
 	typedef std::multimap<seq_nr_t, packet_t *> delayed_t; // FIXME: intrusive?
 	delayed_t d_delayed;
 
@@ -118,13 +107,18 @@ protected: // internal
 	friend struct tcp_stream_hash_addresses;
 };
 
-std::ostream &operator <<(std::ostream &, const tcp_stream_t &);
+inline std::ostream &operator <<(std::ostream &os, const tcp_stream_t &t)
+{
+	t.print(os);
+	return os;
+}
+
 
 struct tcp_stream_equal_addresses
 {
 	bool operator()(const tcp_stream_t &l, const tcp_stream_t &r) const
 	{
-		return l.d_src == r.d_src && l.d_dst == r.d_dst;
+		return l.from() == r.from() && l.to() == r.to();
 	}
 };
 
@@ -132,8 +126,8 @@ struct tcp_stream_hash_addresses
 {
 	std::size_t operator()(const tcp_stream_t &s) const
 	{
-		std::size_t r = hash_value(s.d_src);
-		boost::hash_combine(r, s.d_dst);
+		std::size_t r = hash_value(s.from());
+		boost::hash_combine(r, s.to());
 		return r;
 	}
 };
@@ -173,3 +167,4 @@ protected:
 	void close_stream(tcp_stream_t *stream);
 };
 
+#endif // __REASS_TCP_REASSEMBLER_H__

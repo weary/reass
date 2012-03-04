@@ -90,23 +90,23 @@ void tcp_stream_t::set_timeout(TO &to) throw()
 {
 	bool use_short = d_have_accepted_end;
 	uint64_t r = d_highest_ts.tv_sec;
-	tcp_stream_t *partner = NULL;
+	tcp_stream_t *our_partner = nullptr;
 	if (have_partner())
 	{
-		partner = d_partner;
-		use_short = use_short || d_partner->d_have_accepted_end;
-		uint64_t o = d_partner->d_highest_ts.tv_sec;
+		our_partner = partner();
+		use_short = use_short || our_partner->d_have_accepted_end;
+		uint64_t o = our_partner->d_highest_ts.tv_sec;
 		if (o > r)
 			r = o;
 	}
 
 	r += (use_short ? 60 : 600);
-	to.set_timeout(r, this, partner);
+	to.set_timeout(r, this, our_partner);
 }
 
 
 tcp_stream_t::tcp_stream_t(tcp_stream_t *&free_head) :
-	free_list_member_t<tcp_stream_t>(free_head)
+	common_t(free_head)
 {
 }
 
@@ -116,12 +116,10 @@ tcp_stream_t::~tcp_stream_t()
 
 void tcp_stream_t::init(packet_listener_t *listener)
 {
-	d_listener = listener;
+	common_t::init(listener);
 	d_trust_seq = false;
 	d_highest_ts.tv_sec = 0; d_highest_ts.tv_usec = 0;
 	d_have_accepted_end = false;
-	d_userdata = NULL;
-	d_partner = NULL;
 	d_direction = direction_unknown;
 	assert(d_delayed.empty()); // leftover packets would give funny results :)
 }
@@ -147,41 +145,24 @@ void tcp_stream_t::set_src_dst_from_packet(const packet_t *packet, bool swap /* 
 	if (!iplay)
 		throw format_exception("expected ip layer before tcp layer");
 
-	ip_address_t &src = (swap ? d_dst : d_src);
-	ip_address_t &dst = (swap ? d_src : d_dst);
-#ifdef DEBUG
-	::memset(&src, 'Z', sizeof(src));
-	::memset(&dst, 'Z', sizeof(dst));
-#endif
 	const tcphdr &hdr1 = reinterpret_cast<const tcphdr &>(*tcplay->data());
 	if (iplay->type() == layer_ipv4)
 	{
 		const iphdr &hdr2 = reinterpret_cast<const iphdr &>(*iplay->data());
-		src.v4.sin_family = AF_INET;
-		src.v4.sin_port = hdr1.source;
-		src.v4.sin_addr.s_addr = hdr2.saddr;
-
-		dst.v4.sin_family = AF_INET;
-		dst.v4.sin_port = hdr1.dest;
-		dst.v4.sin_addr.s_addr = hdr2.daddr;
+		common_t::set_src_dst4(
+				hdr2.saddr, hdr1.source,
+				hdr2.daddr, hdr1.dest,
+				swap);
 	}
 	else
 	{
 		const ip6_hdr &hdr2 = reinterpret_cast<const ip6_hdr &>(*iplay->data());
 		assert(iplay->type() == layer_ipv6);
-		src.v6.sin6_family = AF_INET6;
-		src.v6.sin6_port = hdr1.source;
-		src.v6.sin6_addr = hdr2.ip6_src;
-		src.v6.sin6_flowinfo = 0;
-		src.v6.sin6_scope_id = 0;
-
-		dst.v6.sin6_family = AF_INET6;
-		dst.v6.sin6_port = hdr1.dest;
-		dst.v6.sin6_addr = hdr2.ip6_dst;
-		dst.v6.sin6_flowinfo = 0;
-		dst.v6.sin6_scope_id = 0;
+		common_t::set_src_dst6(
+				hdr2.ip6_src, hdr1.source,
+				hdr2.ip6_dst, hdr1.dest,
+				swap);
 	}
-	d_partner = NULL; // so ->release can check the partner
 }
 
 void tcp_stream_t::find_relyable_startseq(const tcphdr &hdr)
@@ -218,7 +199,7 @@ void tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 	if (!d_trust_seq) // check if we already have a starting packet
 		find_relyable_startseq(hdr);
 
-	if (!d_partner)
+	if (!is_partner_set())
 	{
 		seq_nr_t ack(htonl(hdr.ack_seq));
 		if (d_smallest_ack == 0 || ack < d_smallest_ack)
@@ -227,7 +208,7 @@ void tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 
 	seq_nr_t seq(htonl(hdr.seq));
 	// if we know where the packet should go -> do it
-	if (d_trust_seq && d_partner) // d_partner is also true if we gave up looking
+	if (d_trust_seq && is_partner_set()) // partner is also set if we gave up looking
 	{
 		if (seq <= d_next_seq)
 			accept_packet(packet, tcplay);
@@ -260,8 +241,8 @@ bool tcp_stream_t::is_reasonable_seq(seq_nr_t seq)
 void tcp_stream_t::find_direction(packet_t *packet, const layer_t *tcplay)
 {
 	const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
-	if (have_partner() && d_partner->d_direction != direction_unknown)
-		d_direction = (d_partner->d_direction == direction_initiator ? direction_responder : direction_initiator);
+	if (have_partner() && partner()->d_direction != direction_unknown)
+		d_direction = (partner()->d_direction == direction_initiator ? direction_responder : direction_initiator);
 	else
 	{
 		if (hdr.syn)
@@ -270,7 +251,7 @@ void tcp_stream_t::find_direction(packet_t *packet, const layer_t *tcplay)
 			d_direction = (htons(hdr.source) > htons(hdr.dest) ? direction_initiator : direction_responder);
 
 		if (have_partner())
-			d_partner->d_direction = (d_direction == direction_initiator ? direction_responder : direction_initiator);
+			partner()->d_direction = (d_direction == direction_initiator ? direction_responder : direction_initiator);
 	}
 	assert(d_direction == direction_initiator || d_direction == direction_responder);
 }
@@ -315,16 +296,7 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 	if (seq > d_next_seq)
 		d_next_seq = seq;
 
-#if 0
-	if (overlap > 0)
-		printf("packet %08ld: accepted packet %08x (%d data including %d overlap), next will be %08x\n",
-				packet->packetnr(), htonl(hdr.seq), (int)psize, overlap, d_next_seq.d_val);
-	else
-		printf("packet %08ld: accepted packet %08x (%d data, %d packetloss), next will be %08x\n",
-				packet->packetnr(), htonl(hdr.seq), (int)psize, packetloss, d_next_seq.d_val);
-#endif
-
-	d_listener->accept_tcp(packet, packetloss, this);
+	listener()->accept_tcp(packet, packetloss, this);
 
 	check_delayed();
 }
@@ -332,12 +304,10 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 // check if we can accept some packets given current sequencenumbers
 void tcp_stream_t::check_delayed(bool force /* force at least one packet out */)
 {
-	//printf("checking delayed, contains %d entries\n", (int)d_delayed.size());
-
-	if (!d_partner)
+	if (!is_partner_set())
 	{
 		if (force)
-			d_partner = no_partner(); // give up
+			set_partner(no_partner()); // give up
 		else
 			return; // not forced, and still looking for a partner -> do nothing
 	}
@@ -366,30 +336,9 @@ void tcp_stream_t::flush()
 void tcp_stream_t::release() // destructor
 { // note, also called after only set_src_dst_from_packet is called on us
 	assert(d_delayed.empty());
-	if (d_partner &&
-			d_partner != no_partner() &&
-			d_partner != partner_destroyed())
-		d_partner->d_partner = partner_destroyed();
-#ifdef DEBUG
-	d_partner = partner_destroyed();
-	::memset(&d_src, 'X', sizeof(d_src));
-	::memset(&d_dst, 'X', sizeof(d_dst));
-#endif
 	doublelinked_hook_t::unlink();
 	unordered_member_t::unlink();
-
-	free_list_member_t<tcp_stream_t>::release();
-}
-
-void tcp_stream_t::print(std::ostream &os) const
-{
-	os << d_src << " -> " << d_dst;
-}
-
-std::ostream &operator <<(std::ostream &os, const tcp_stream_t &s)
-{
-	s.print(os);
-	return os;
+	common_t::release();
 }
 
 tcp_reassembler_t::tcp_reassembler_t(packet_listener_t *listener) :
@@ -451,20 +400,20 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 		pr->set_src_dst_from_packet(packet, true);
 		stream_set_t::iterator pi = d_streams.find(*pr);
 		if (pi != d_streams.end() && pi != ituple.first)
-			r->set_partner(&*pi);
+			r->found_partner(&*pi);
 	}
 	return ituple.first;
 }
 
-void tcp_stream_t::set_partner(tcp_stream_t *other)
+void tcp_stream_t::found_partner(tcp_stream_t *other)
 {
 	assert(other != this);
-	if (other->d_partner == no_partner())
+	if (other->is_partner_set())
 		return; // too late. our partner gave up on us
 
-	assert(d_partner == NULL && other->d_partner == NULL);
-	d_partner = other;
-	other->d_partner = this;
+	assert(!is_partner_set() && !other->is_partner_set());
+	set_partner(other);
+	other->set_partner(this);
 	other->check_delayed();
 
 	// if the other side has a reasonable guess at our sequence numbers, use it
