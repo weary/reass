@@ -271,6 +271,12 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 	size_t psize = 0;
 	if (next) psize = next->size();
 	assert(!next || (packet->next(next) == NULL && next->type() == layer_data)); // assume we are the last
+	if (psize && hdr.syn)
+	{
+		// if this ever happens in a legal case, please send me the pcap
+		listener()->accept_error(packet, "tcp-payload in syn-packet");
+		return;
+	}
 	assert(!psize || !hdr.syn); // assume syn-packets will not have content. will break some day
 	seq_nr_t seq = htonl(hdr.seq);
 	int32_t packetloss = seq.d_val - d_next_seq.d_val;
