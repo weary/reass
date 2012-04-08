@@ -13,6 +13,21 @@
 #include "force_inline.h"
 #include "packet_listener.h"
 
+typedef boost::intrusive::unordered_set_base_hook<
+		boost::intrusive::link_mode<
+			boost::intrusive::auto_unlink>,
+		boost::intrusive::store_hash<false>
+	> unordered_member_t;
+
+inline
+const layer_t *find_top_nondata_layer(const packet_t *packet)
+{
+	const layer_t *lay = packet->layer(-1);
+	while (lay && lay->type() == layer_data)
+		lay = packet->prev(lay);
+	return lay;
+}
+
 
 // shared functionality between udp_stream_t and tcp_stream_t
 // both have partners, from/to ip's and userdata
@@ -59,6 +74,29 @@ private: // internal
 
 	void *d_userdata;
 };
+
+struct stream_equal_addresses
+{
+	template<typename CRTP>
+	bool operator()(
+			const common_stream_t<CRTP> &l,
+			const common_stream_t<CRTP> &r) const
+	{
+		return l.from() == r.from() && l.to() == r.to();
+	}
+};
+
+struct stream_hash_addresses
+{
+	template<typename CRTP>
+	std::size_t operator()(const common_stream_t<CRTP> &s) const
+	{
+		std::size_t r = hash_value(s.from());
+		boost::hash_combine(r, s.to());
+		return r;
+	}
+};
+
 
 #include "common_reassembler.hpp"
 

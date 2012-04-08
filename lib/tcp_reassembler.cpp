@@ -123,19 +123,10 @@ void tcp_stream_t::init(packet_listener_t *listener)
 	assert(d_delayed.empty()); // leftover packets would give funny results :)
 }
 
-static const layer_t *find_tcp_layer(const packet_t *packet)
-{
-	int n = -1;
-	const layer_t *tcplay = packet->layer(n);
-	while (tcplay && tcplay->type() != layer_tcp)
-		tcplay = packet->layer(--n);
-	return tcplay;
-}
-
 void tcp_stream_t::set_src_dst_from_packet(const packet_t *packet, bool swap /* construct src/dst inverted stream */)
 {
-	const layer_t *tcplay = find_tcp_layer(packet);
-	if (!tcplay)
+	const layer_t *tcplay = find_top_nondata_layer(packet);
+	if (!tcplay || tcplay->type() != layer_tcp)
 		throw format_exception("expected tcp layer");
 
 	const layer_t *iplay = packet->prev(tcplay);
@@ -326,7 +317,8 @@ void tcp_stream_t::check_delayed(bool force /* force at least one packet out */)
 	{
 		packet_t *packet = i->second;
 		d_delayed.erase(i);
-		const layer_t *tcplay = find_tcp_layer(packet);
+		const layer_t *tcplay = find_top_nondata_layer(packet);
+		assert(tcplay && tcplay->type() == layer_tcp);
 		accept_packet(packet, tcplay);
 	}
 }
@@ -450,16 +442,12 @@ void tcp_reassembler_t::close_stream(tcp_stream_t *stream)
 	stream->release();
 }
 
-struct no_op
-{
-  void operator()(tcp_stream_t *) {}
-};
-
 void tcp_reassembler_t::process(packet_t *packet)
 {
 	assert(packet->is_initialised());
-	const layer_t *tcplay = find_tcp_layer(packet);
-	assert(tcplay && "packet is not tcp");
+
+	const layer_t *tcplay = find_top_nondata_layer(packet);
+	assert(tcplay && tcplay->type() != layer_tcp);
 
 	set_now(packet->ts().tv_sec);
 

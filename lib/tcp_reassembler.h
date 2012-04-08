@@ -40,16 +40,10 @@ inline bool operator !=(const seq_nr_t &l, uint32_t r) { return l.d_val != r; }
 
 std::ostream &operator <<(std::ostream &os, const seq_nr_t &s);
 
-typedef boost::intrusive::unordered_set_base_hook<
-		boost::intrusive::link_mode<
-			boost::intrusive::auto_unlink>,
-		boost::intrusive::store_hash<false>
-	> unordered_member_t;
-
 struct tcp_stream_t :
 	public common_stream_t<tcp_stream_t>,
-	public doublelinked_hook_t,
-	public unordered_member_t
+	public doublelinked_hook_t, // for timeouts
+	public unordered_member_t // for stream-lookup
 {
 	tcp_stream_t(tcp_stream_t *&free_head);
 	~tcp_stream_t();
@@ -103,8 +97,8 @@ protected: // internal
 	typedef std::multimap<seq_nr_t, packet_t *> delayed_t; // FIXME: intrusive?
 	delayed_t d_delayed;
 
-	friend struct tcp_stream_equal_addresses;
-	friend struct tcp_stream_hash_addresses;
+	friend struct stream_equal_addresses;
+	friend struct stream_hash_addresses;
 };
 
 inline std::ostream &operator <<(std::ostream &os, const tcp_stream_t &t)
@@ -113,24 +107,6 @@ inline std::ostream &operator <<(std::ostream &os, const tcp_stream_t &t)
 	return os;
 }
 
-
-struct tcp_stream_equal_addresses
-{
-	bool operator()(const tcp_stream_t &l, const tcp_stream_t &r) const
-	{
-		return l.from() == r.from() && l.to() == r.to();
-	}
-};
-
-struct tcp_stream_hash_addresses
-{
-	std::size_t operator()(const tcp_stream_t &s) const
-	{
-		std::size_t r = hash_value(s.from());
-		boost::hash_combine(r, s.to());
-		return r;
-	}
-};
 
 struct tcp_reassembler_t :
 	private free_list_container_t<tcp_stream_t>
@@ -155,8 +131,8 @@ protected:
 		tcp_stream_t,
 		boost::intrusive::constant_time_size<false>,
 		boost::intrusive::power_2_buckets<true>,
-		boost::intrusive::equal<tcp_stream_equal_addresses>,
-		boost::intrusive::hash<tcp_stream_hash_addresses>
+		boost::intrusive::equal<stream_equal_addresses>,
+		boost::intrusive::hash<stream_hash_addresses>
 	> stream_set_t;
 
 	std::vector<stream_set_t::bucket_type> d_stream_buckets;
