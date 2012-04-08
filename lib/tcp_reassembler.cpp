@@ -85,8 +85,7 @@ std::ostream &operator <<(std::ostream &os, const timeval &tv)
 	return os;
 }
 
-template<typename TO>
-void tcp_stream_t::set_timeout(TO &to) throw()
+uint64_t tcp_stream_t::timeout() const
 {
 	bool use_short = d_have_accepted_end;
 	uint64_t r = d_highest_ts.tv_sec;
@@ -101,7 +100,7 @@ void tcp_stream_t::set_timeout(TO &to) throw()
 	}
 
 	r += (use_short ? 60 : 600);
-	to.set_timeout(r, this, our_partner);
+	return r;
 }
 
 
@@ -467,7 +466,12 @@ void tcp_reassembler_t::process(packet_t *packet)
 	stream_set_t::iterator it = find_or_create_stream(packet, tcplay);
 	it->add(packet, tcplay);
 
-	it->set_timeout(d_timeouts);
+	// timeouts
+	uint64_t to = it->timeout();
+	tcp_stream_t *partner = nullptr;
+	if (it->have_partner())
+		partner = it->partner();
+	d_timeouts.set_timeout(to, &*it, partner);
 }
 
 void tcp_reassembler_t::flush()

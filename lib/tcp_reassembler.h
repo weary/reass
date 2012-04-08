@@ -66,8 +66,8 @@ protected: // called from tcp_reassembler_t
 
 	void add(packet_t *packet, const layer_t *tcplay);
 
-	template<typename TO>
-	void set_timeout(TO &to) throw();
+	// returns timestamp when this stream(+partner) is timed-out
+	uint64_t timeout() const;
 
 	// return true if it is likely that seq belongs to this stream (to determine port-reuse)
 	bool is_reasonable_seq(seq_nr_t seq);
@@ -132,7 +132,8 @@ struct tcp_stream_hash_addresses
 	}
 };
 
-struct tcp_reassembler_t : private free_list_container_t<tcp_stream_t>
+struct tcp_reassembler_t :
+	private free_list_container_t<tcp_stream_t>
 {
 	tcp_reassembler_t(packet_listener_t *listener);
 	~tcp_reassembler_t();
