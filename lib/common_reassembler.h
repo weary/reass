@@ -60,62 +60,6 @@ private: // internal
 	void *d_userdata;
 };
 
-#if 0
-struct tcp_stream_equal_addresses
-{
-	bool operator()(const tcp_stream_t &l, const tcp_stream_t &r) const
-	{
-		return l.d_src == r.d_src && l.d_dst == r.d_dst;
-	}
-};
-
-struct tcp_stream_hash_addresses
-{
-	std::size_t operator()(const tcp_stream_t &s) const
-	{
-		std::size_t r = hash_value(s.d_src);
-		boost::hash_combine(r, s.d_dst);
-		return r;
-	}
-};
-
-struct tcp_reassembler_t : private free_list_container_t<tcp_stream_t>
-{
-	tcp_reassembler_t(packet_listener_t *listener);
-	~tcp_reassembler_t();
-
-	void process(packet_t *packet);
-
-	void set_listener(packet_listener_t *listener) { d_listener = listener; }
-
-	// advance current time to specified nr-of-seconds since epoch (1970)
-	// will not move time backwards, checks timeouts
-	void set_now(uint64_t now);
-	uint64_t now() const { return d_timeouts.now(); }
-
-	void flush();
-protected:
-	packet_listener_t *d_listener;
-
-	typedef boost::intrusive::unordered_set<
-		tcp_stream_t,
-		boost::intrusive::constant_time_size<false>,
-		boost::intrusive::power_2_buckets<true>,
-		boost::intrusive::equal<tcp_stream_equal_addresses>,
-		boost::intrusive::hash<tcp_stream_hash_addresses>
-	> stream_set_t;
-
-	std::vector<stream_set_t::bucket_type> d_stream_buckets;
-	stream_set_t d_streams;
-	typedef timeouts_t<616, 8, tcp_stream_t> tcp_timeouts_t; // 10 mins + 10 secs rounded up to multiple of 8
-	tcp_timeouts_t d_timeouts;
-
-	stream_set_t::iterator find_or_create_stream(packet_t *packet, const layer_t *tcplay);
-	void close_stream(tcp_stream_t *stream);
-};
-
-#endif
-
 #include "common_reassembler.hpp"
 
 #endif // __REASS_COMMON_REASSEMBLER_H__
