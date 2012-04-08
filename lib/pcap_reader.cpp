@@ -23,6 +23,8 @@ struct udp_reassembler_t
 
 	void set_listener(packet_listener_t *listener) { d_listener = listener; }
 
+	void set_now(uint64_t now) {}
+
 	void flush() {}
 
 protected:
@@ -168,6 +170,11 @@ void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *d
 	try
 	{
 		packet->init(++d_packetnr, d_linktype, hdr, data, &must_copy); // parse layers
+
+		if (d_tcp_reassembler)
+			d_tcp_reassembler->set_now(packet->ts().tv_sec);
+		if (d_udp_reassembler)
+			d_udp_reassembler->set_now(packet->ts().tv_sec);
 
 		// reassemble tcp if top-layer is tcp, or tcp+data
 		layer_t *top = packet->layer(-1);

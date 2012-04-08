@@ -7,6 +7,7 @@
 #include "packet_listener.h"
 #include "shared/misc.h"
 #include "config.h"
+#include "likely.h"
 #include <boost/version.hpp>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
@@ -155,6 +156,24 @@ void tcp_stream_t::set_src_dst_from_packet(const packet_t *packet, bool swap /* 
 	}
 }
 
+void tcp_stream_t::found_partner(tcp_stream_t *other)
+{
+	assert(other != this);
+	if (other->is_partner_set())
+		return; // too late. our partner gave up on us
+
+	assert(!is_partner_set() && !other->is_partner_set());
+	set_partner(other);
+	other->set_partner(this);
+	other->check_delayed();
+
+	// if the other side has a reasonable guess at our sequence numbers, use it
+	if (!d_trust_seq && other->d_smallest_ack != 0 &&
+			(d_next_seq == 0 || d_next_seq < other->d_smallest_ack))
+		d_next_seq = other->d_smallest_ack;
+}
+
+
 void tcp_stream_t::find_relyable_startseq(const tcphdr &hdr)
 {
 	seq_nr_t seq(htonl(hdr.seq));
@@ -176,7 +195,7 @@ void tcp_stream_t::find_relyable_startseq(const tcphdr &hdr)
 }
 
 // add a packet, will either queue it in d_delayed, or accept it
-void tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
+bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 {
 	//printf("adding packet. next_seq = %08x\n", d_next_seq.d_val);
 	assert(tcplay);
@@ -185,6 +204,9 @@ void tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 		d_highest_ts = packet->ts();
 
 	const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
+
+	if (unlikely(!is_reasonable_seq(htonl(hdr.seq))))
+		return false; // quick port re-use, packet not part of this stream
 
 	if (!d_trust_seq) // check if we already have a starting packet
 		find_relyable_startseq(hdr);
@@ -214,6 +236,8 @@ void tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 		d_trust_seq = true; // if this wasn't set yet, it was seriously screwed up
 		check_delayed(true);
 	}
+
+	return true; // packet belonged to this stream
 }
 
 bool tcp_stream_t::is_reasonable_seq(seq_nr_t seq)
@@ -338,6 +362,10 @@ void tcp_stream_t::release() // destructor
 	common_t::release();
 }
 
+
+/////// tcp_reassembler_t //////////////////////
+
+
 tcp_reassembler_t::tcp_reassembler_t(packet_listener_t *listener) :
 	free_list_container_t<tcp_stream_t>(0),
 	d_listener(listener), d_stream_buckets(512), // FIXME: add some checks on the number of streams
@@ -366,25 +394,6 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 	r->set_src_dst_from_packet(packet, false);
 	std::pair<stream_set_t::iterator,bool> ituple = d_streams.insert(*r);
 
-	if (!ituple.second /* insert failed */)
-	{
-		tcp_stream_t *old = &*ituple.first;
-		const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
-		if (!old->is_reasonable_seq(htonl(hdr.seq)))
-		{ // port re-used before timeout elapsed
-			if (old->have_partner())
-			{ // close partner
-				tcp_stream_t *partner = old->partner();
-				assert(partner != old);
-				close_stream(partner);
-			}
-			close_stream(old);
-
-			ituple = d_streams.insert(*r); // try insert again
-			assert(ituple.second);
-		}
-	}
-
 	if (ituple.second) // new stream was inserted
 	{
 		r->init(d_listener);
@@ -400,23 +409,6 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 			r->found_partner(&*pi);
 	}
 	return ituple.first;
-}
-
-void tcp_stream_t::found_partner(tcp_stream_t *other)
-{
-	assert(other != this);
-	if (other->is_partner_set())
-		return; // too late. our partner gave up on us
-
-	assert(!is_partner_set() && !other->is_partner_set());
-	set_partner(other);
-	other->set_partner(this);
-	other->check_delayed();
-
-	// if the other side has a reasonable guess at our sequence numbers, use it
-	if (!d_trust_seq && other->d_smallest_ack != 0 &&
-			(d_next_seq == 0 || d_next_seq < other->d_smallest_ack))
-		d_next_seq = other->d_smallest_ack;
 }
 
 void tcp_reassembler_t::set_now(uint64_t now)
@@ -449,16 +441,21 @@ void tcp_reassembler_t::process(packet_t *packet)
 	const layer_t *tcplay = find_top_nondata_layer(packet);
 	assert(tcplay && tcplay->type() != layer_tcp);
 
-	set_now(packet->ts().tv_sec);
-
 	stream_set_t::iterator it = find_or_create_stream(packet, tcplay);
-	it->add(packet, tcplay);
+	tcp_stream_t *partner = (it->have_partner() ? it->partner() : nullptr);
+
+	bool accepted_packet = it->add(packet, tcplay);
+
+	if (unlikely(!accepted_packet))
+	{
+		if (partner)
+			close_stream(partner);
+		close_stream(&*it);
+		process(packet);
+	}
 
 	// timeouts
 	uint64_t to = it->timeout();
-	tcp_stream_t *partner = nullptr;
-	if (it->have_partner())
-		partner = it->partner();
 	d_timeouts.set_timeout(to, &*it, partner);
 }
 

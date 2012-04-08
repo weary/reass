@@ -58,13 +58,11 @@ protected: // called from tcp_reassembler_t
 
 	void found_partner(tcp_stream_t *partner);
 
-	void add(packet_t *packet, const layer_t *tcplay);
+	// return false if !is_reasonable_seq
+	bool add(packet_t *packet, const layer_t *tcplay);
 
 	// returns timestamp when this stream(+partner) is timed-out
 	uint64_t timeout() const;
-
-	// return true if it is likely that seq belongs to this stream (to determine port-reuse)
-	bool is_reasonable_seq(seq_nr_t seq);
 
 	static tcp_stream_t *no_partner() { return (tcp_stream_t*)-1; }
 	static tcp_stream_t *partner_destroyed() { return (tcp_stream_t*)-2; }
@@ -78,6 +76,7 @@ public:
 protected: // internal
 	void accept_packet(packet_t *p, const layer_t *tcplay);
 	void find_relyable_startseq(const tcphdr &hdr);
+	bool is_reasonable_seq(seq_nr_t seq);
 	void check_delayed(bool force = false);
 	void find_direction(packet_t *packet, const layer_t *tcplay);
 	void flush();
