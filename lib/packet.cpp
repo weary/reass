@@ -31,13 +31,11 @@ packet_t::~packet_t()
 }
 
 void packet_t::init(
-		uint64_t packetnr,
 		int linktype,
 		const struct pcap_pkthdr *hdr,
 		const u_char *data,
 		bool *still_must_copy_data)
 {
-	d_packetnr = packetnr;
 	d_pckthdr = *hdr;
 	d_layercount = 0;
 	const bpf_u_int32 caplen = hdr->caplen;
@@ -368,8 +366,8 @@ void packet_t::print(std::ostream &os) const
 	struct timeval ts = d_pckthdr.ts;
 	bpf_u_int32 len = d_pckthdr.len;
 	bpf_u_int32 caplen = d_pckthdr.caplen;
-	sprintf(buf, "[%4"PRIu64" %d.%06d %4d",
-			d_packetnr, (unsigned)ts.tv_sec, (unsigned)ts.tv_usec, caplen);
+	sprintf(buf, "[%d.%06d %4d",
+			(unsigned)ts.tv_sec, (unsigned)ts.tv_usec, caplen);
 	os << buf;
 	if (caplen != len)
 		os << '/' << len;

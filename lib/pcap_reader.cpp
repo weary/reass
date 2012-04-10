@@ -44,7 +44,10 @@ struct pcap_close_guard_t
 
 pcap_reader_t::pcap_reader_t(packet_listener_t *listener) :
 	free_list_container_t<packet_t>(0),
-	d_pcap(NULL), d_packetnr(0), d_listener(listener),
+	d_pcap(NULL), d_listener(listener),
+#ifdef PRINT_STATS
+	d_packetnr(0),
+#endif
 	d_tcp_reassembler(NULL), d_udp_reassembler(NULL)
 {
 	enable_tcp_reassembly(true);
@@ -164,12 +167,16 @@ void pcap_reader_t::enable_udp_reassembly(bool en)
 // called whenever libpcap has a packet
 void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *data)
 {
+#ifdef PRINT_STATS
+	++d_packetnr;
+#endif
+
 	packet_t *packet = claim(); // get space from free list (or new if free list was empty)
 
 	bool must_copy = true; // packet is using libpcap memory
 	try
 	{
-		packet->init(++d_packetnr, d_linktype, hdr, data, &must_copy); // parse layers
+		packet->init(d_linktype, hdr, data, &must_copy); // parse layers
 
 		if (d_tcp_reassembler)
 			d_tcp_reassembler->set_now(packet->ts().tv_sec);

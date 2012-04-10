@@ -47,9 +47,12 @@ protected:
 
 	pcap_t *d_pcap;
 	bpf_program d_bpf;
-	uint64_t d_packetnr;
 	int d_linktype;
 	packet_listener_t *d_listener;
+
+#ifdef PRINT_STATS
+	uint64_t d_packetnr;
+#endif
 
 	tcp_reassembler_t *d_tcp_reassembler;
 	udp_reassembler_t *d_udp_reassembler;

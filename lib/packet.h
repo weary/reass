@@ -76,7 +76,7 @@ struct packet_t : public free_list_member_t<packet_t>
 	packet_t(packet_t *&free_head);
 	~packet_t();
 
-	void init(uint64_t packetnr, int linktype,
+	void init(int linktype,
 			const struct pcap_pkthdr *hdr, const u_char *data,
 			bool *have_copied_data = NULL);
 
@@ -115,7 +115,6 @@ struct packet_t : public free_list_member_t<packet_t>
 	bool is_initialised() const { return d_is_initialised == 1; }
 #endif //DEBUG
 
-	uint64_t packetnr() const { return d_packetnr; }
 	timeval ts() const { return d_pckthdr.ts; }
 
 	const u_char *data() const { return d_pcap; }
@@ -125,11 +124,13 @@ struct packet_t : public free_list_member_t<packet_t>
 	void copy_data();
 
 	void add_layer(layer_type, const u_char *begin, const u_char *end);
+
+	void set_userdata(void *userdata) { d_userdata = userdata; }
+	void *userdata() const { return d_userdata; }
 protected:
 	void parse_next_ethertype(uint16_t ethertype, const u_char *next, const u_char *end, const char *curname);
 	void parse_next_ip_protocol(uint8_t ethertype, const u_char *next, const u_char *end, const char *curname);
 
-	uint64_t d_packetnr;
 	struct pcap_pkthdr d_pckthdr; // contains ts/caplen/len
 
 	u_char *d_pcap_buf; // only initialised if this packet ever needed local storage
@@ -142,6 +143,8 @@ protected:
 
 	uint32_t d_layercount;
 	layer_t d_layers[MAX_LAYERS];
+
+	void *d_userdata;
 #ifdef DEBUG
 	int d_is_initialised;
 #endif
