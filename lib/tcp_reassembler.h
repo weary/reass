@@ -6,7 +6,6 @@
 #ifndef __REASS_TCP_REASSEMBLER_H__
 #define __REASS_TCP_REASSEMBLER_H__
 
-#include "uint128.h"
 #include "ip_address.h"
 #include "free_list.h"
 #include "timeout.h"
