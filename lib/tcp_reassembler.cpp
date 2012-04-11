@@ -439,7 +439,7 @@ void tcp_reassembler_t::process(packet_t *packet)
 	assert(packet->is_initialised());
 
 	const layer_t *tcplay = find_top_nondata_layer(packet);
-	assert(tcplay && tcplay->type() != layer_tcp);
+	assert(tcplay && tcplay->type() == layer_tcp);
 
 	stream_set_t::iterator it = find_or_create_stream(packet, tcplay);
 	tcp_stream_t *partner = (it->have_partner() ? it->partner() : nullptr);
