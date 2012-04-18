@@ -452,6 +452,7 @@ void tcp_reassembler_t::process(packet_t *packet)
 			close_stream(partner);
 		close_stream(&*it);
 		process(packet);
+		return;
 	}
 
 	// timeouts
