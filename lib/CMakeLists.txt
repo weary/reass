@@ -5,6 +5,7 @@ SET(SOURCES
 		packet.cpp
 		pcap_reader.cpp
 		tcp_reassembler.cpp
+		udp_reassembler.cpp
 		../shared/misc.cpp)
 add_library(reass ${SOURCES})
 target_link_libraries(reass pcap)

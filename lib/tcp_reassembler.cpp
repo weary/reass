@@ -43,13 +43,6 @@ static bool operator <=(const seq_nr_t &l, const seq_nr_t &r)
 	return diff <= 0;
 }
 
-static bool operator >(const timeval &l, const timeval &r)
-{
-	if (l.tv_sec != r.tv_sec)
-		return l.tv_sec > r.tv_sec;
-	return l.tv_usec > r.tv_usec;
-}
-
 #if 0
 static bool operator <(const timeval &l, const timeval &r)
 {

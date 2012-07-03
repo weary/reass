@@ -6,30 +6,9 @@
 #include "pcap_reader.h"
 #include "packet_listener.h"
 #include "tcp_reassembler.h"
+#include "udp_reassembler.h"
 #include "config.h"
 #include "shared/misc.h"
-
-struct udp_reassembler_t
-{
-	udp_reassembler_t(packet_listener_t *listener) :
-		d_listener(listener)
-	{
-	}
-
-	void process(packet_t *packet)
-	{
-		d_listener->accept_udp(packet, NULL);
-	}
-
-	void set_listener(packet_listener_t *listener) { d_listener = listener; }
-
-	void set_now(uint64_t now) {}
-
-	void flush() {}
-
-protected:
-	packet_listener_t *d_listener;
-};
 
 namespace
 {

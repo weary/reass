@@ -97,6 +97,13 @@ struct stream_hash_addresses
 	}
 };
 
+inline bool operator >(const timeval &l, const timeval &r)
+{
+	if (l.tv_sec != r.tv_sec)
+		return l.tv_sec > r.tv_sec;
+	return l.tv_usec > r.tv_usec;
+}
+
 
 #include "common_reassembler.hpp"
 
