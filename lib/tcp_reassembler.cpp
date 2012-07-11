@@ -111,6 +111,8 @@ void tcp_stream_t::init(packet_listener_t *listener)
 {
 	common_t::init(listener);
 	d_trust_seq = false;
+	d_next_seq = 0;
+	d_smallest_ack = 0;
 	d_highest_ts.tv_sec = 0; d_highest_ts.tv_usec = 0;
 	d_have_accepted_end = false;
 	d_direction = direction_unknown;
@@ -304,7 +306,8 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 	if (hdr.syn) ++seq.d_val;
 	if (hdr.fin) ++seq.d_val; // this is undocumented, but needed??
 
-	if (packetloss < 0) packetloss = 0;
+	// we don't have packetloss if we have a reset-packet, or with packet-overlap
+	if (packetloss < 0 || hdr.rst) packetloss = 0;
 
 	if (seq > d_next_seq)
 		d_next_seq = seq;
@@ -437,6 +440,7 @@ void tcp_reassembler_t::process(packet_t *packet)
 	stream_set_t::iterator it = find_or_create_stream(packet, tcplay);
 	tcp_stream_t *partner = (it->have_partner() ? it->partner() : nullptr);
 
+	// returns false if packet probably does not belong to stream (quick port reuse)
 	bool accepted_packet = it->add(packet, tcplay);
 
 	if (unlikely(!accepted_packet))
