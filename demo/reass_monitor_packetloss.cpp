@@ -30,34 +30,40 @@ public:
 	{
 		if (!stream->userdata())
 		{
-			printf("new stream\n");
 			stream->set_userdata((void *)1);
 			if (!stream->have_partner())
 			{
 				++d_single_sided;
-				printf("%s is single-sided\n", to_str(*stream).c_str());
+				//printf("%s is single-sided\n", to_str(*stream).c_str());
 			}
 			else
 				++d_full_streams;
 		}
-		d_packetloss += d_packetloss;
+		d_packetloss += packetloss;
 
 		if (packet)
 		{
 			uint64_t now = packet->ts().tv_sec;
 			if (d_prev_ts + d_every < now)
 			{
-				printf("%ld: %ld streams-with-partner, %ld single-streams, %ld bytes lost\n",
-						now, d_full_streams, d_single_sided, d_packetloss);
+				printf("%ld: ", now);
+				print_status();
 				d_prev_ts = now;
 			}
 			packet->release();
 		}
 	}
 
+	void print_status() const
+	{
+		printf("%ld streams-with-partner, %ld single-streams, %ld bytes lost\n",
+				d_full_streams, d_single_sided, d_packetloss);
+	}
+
 	void accept_error(packet_t *packet, const char *error)
 	{
-		throw format_exception("error parsing packet '%s': %s", to_str(*packet).c_str(), error);
+		if (strncmp(error, "unsupported protocol ", 21) != 0)
+			throw format_exception("error parsing packet '%s': %s", to_str(*packet).c_str(), error);
 	}
 
 	uint64_t d_prev_ts;
@@ -87,7 +93,7 @@ int main(int argc, char *argv[])
 		bool havenext = n+1 < argc;
 		if (havenext && (arg == "--bpf" || arg == "--filter"))
 		{ filter = argv[n+1]; ++n; }
-		if (havenext && (arg == "--every" || arg == "-e"))
+		else if (havenext && (arg == "--every" || arg == "-e"))
 		{ every = boost::lexical_cast<uint32_t>(argv[n+1]); ++n; }
 		else if (arg == "--live")
 			live = true;
@@ -117,6 +123,7 @@ int main(int argc, char *argv[])
 		while (1)
 			reader.read_packets();
 	}
+	listener.print_status();
 }
 catch(const std::exception &e)
 {
