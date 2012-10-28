@@ -5,7 +5,6 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <string>
-#include <sys/time.h>
 #include <boost/lexical_cast.hpp>
 
 
@@ -127,12 +126,6 @@ inline std::string readstring(int handle, size_t size)
 	delete[] buf;
 	return r;
 }
-
-struct gettime : public timeval
-{
-	gettime() { ::gettimeofday(this, NULL); }
-	operator double() const { return static_cast<double>(tv_sec) + static_cast<double>(tv_usec) * 0.000001; }
-};
 
 template<typename LIST>
 std::string join(const LIST &l_, const std::string &sep_)
