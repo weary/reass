@@ -46,7 +46,7 @@ FORCE_INLINE void common_stream_t<CRTP>::set_src_dst4(
 }
 
 template<typename CRTP>
-FORCE_INLINE inline void common_stream_t<CRTP>::set_src_dst6(
+FORCE_INLINE void common_stream_t<CRTP>::set_src_dst6(
 		const in6_addr &from, u_int16_t fromport,
 		const in6_addr &to, u_int16_t toport,
 		bool swap)
