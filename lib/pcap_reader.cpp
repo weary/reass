@@ -55,19 +55,36 @@ void pcap_reader_t::read_file(const std::string &fname, const std::string &bpf)
 	if (d_pcap)
 		throw format_exception("Cannot read pcap while already busy");
 
+	pcap_close_guard_t closeguard(d_pcap);
+
+	open_file(fname, bpf);
+	read_packets();
+}
+
+void pcap_reader_t::open_file(const std::string &fname, const std::string &bpf)
+{
+	if (d_pcap)
+		throw format_exception("Cannot open pcap while already busy");
+
 	char errbuf[PCAP_ERRBUF_SIZE];
 	d_pcap = pcap_open_offline(fname.c_str(), errbuf);
 	if (!d_pcap)
 		throw format_exception("Could not open pcap '%s', %s", fname.c_str(), errbuf);
-
-	pcap_close_guard_t closeguard(d_pcap);
 
 	set_bpf(bpf);
 
 	d_linktype = pcap_datalink(d_pcap);
 
 	d_listener->begin_capture(fname, linktype(), snaplen());
-	read_packets();
+}
+
+void pcap_reader_t::close_file()
+{
+	if (!d_pcap)
+		throw format_exception("Cannot close pcap without opened pcap");
+
+	pcap_close(d_pcap);
+	d_pcap = nullptr;
 }
 
 void pcap_reader_t::open_live_capture(const std::string &device, bool promiscuous, const std::string &bpf)
@@ -100,7 +117,7 @@ void pcap_reader_t::set_bpf(const std::string &bpf)
 void pcap_reader_t::close_live_capture()
 {
 	pcap_close(d_pcap);
-	d_pcap = NULL;
+	d_pcap = nullptr;
 }
 
 void pcap_reader_t::set_listener(packet_listener_t *listener)

@@ -20,7 +20,10 @@ struct pcap_reader_t : private free_list_container_t<packet_t>
 	pcap_reader_t(packet_listener_t *listener = NULL);
 	~pcap_reader_t();
 
+	// read_file does open_file, read_packets, close_file together
 	void read_file(const std::string &fname, const std::string &bpf = std::string());
+	void open_file(const std::string &fname, const std::string &bpf = std::string());
+	void close_file();
 
 	void open_live_capture(const std::string &device, bool promiscuous, const std::string &bpf = std::string());
 	void close_live_capture();
@@ -32,6 +35,7 @@ struct pcap_reader_t : private free_list_container_t<packet_t>
 	void enable_tcp_reassembly(bool en); // enabled by default
 	void enable_udp_reassembly(bool en); // enabled by default
 
+	// only valid after read_file started
 	int linktype() const { return d_linktype; }
 	int snaplen() const { return pcap_snapshot(d_pcap); }
 
