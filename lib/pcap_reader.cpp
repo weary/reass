@@ -23,11 +23,11 @@ struct pcap_close_guard_t
 
 pcap_reader_t::pcap_reader_t(packet_listener_t *listener) :
 	free_list_container_t<packet_t>(0),
-	d_pcap(NULL), d_listener(listener),
+	d_pcap(nullptr), d_listener(listener),
 #ifdef PRINT_STATS
 	d_packetnr(0),
 #endif
-	d_tcp_reassembler(NULL), d_udp_reassembler(NULL)
+	d_tcp_reassembler(nullptr), d_udp_reassembler(nullptr)
 {
 	enable_tcp_reassembly(true);
 	enable_udp_reassembly(true);
@@ -156,7 +156,7 @@ void pcap_reader_t::enable_udp_reassembly(bool en)
 	else if (!en && d_udp_reassembler)
 	{
 		delete d_udp_reassembler;
-		d_udp_reassembler = NULL;
+		d_udp_reassembler = nullptr;
 	}
 }
 
