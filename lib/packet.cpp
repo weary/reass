@@ -111,11 +111,24 @@ void packet_t::add_layer(layer_type type, const u_char *begin, const u_char *end
 	++d_layercount;
 }
 
+struct logical_link_layer_t : public unknown_layer_t
+{
+	logical_link_layer_t(uint32_t next, const char *cur) throw() :
+		unknown_layer_t(next, cur) {}
+
+	virtual const char* what() const throw()
+	{
+		static char buf[256];
+		sprintf(buf, "unsupported logical link layer 0x%x in %s header", d_next, d_cur);
+		return buf;
+	}
+};
+
 void packet_t::parse_next_ethertype(uint16_t ethertype,
 		const u_char *next, const u_char *end, const char *curname)
 {
-	if (ethertype <= 1500)
-		throw unknown_layer_t(ethertype, curname); // length, next layer is logical-link control
+	if (ethertype <= 1500) // all these mean logical-link control layer
+		throw logical_link_layer_t(ethertype, curname);
 	else if (ethertype <= 1536)
 		throw format_exception("invalid protocol 0x%x in %s header (should not have this value)", ethertype, curname);
 
