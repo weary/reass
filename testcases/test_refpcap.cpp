@@ -15,7 +15,7 @@ std::string to_str(sha1 &hash)
 	return buf;
 }
 
-typedef std::map<std::string, std::string> resultmap_t;
+typedef std::map<std::string, std::pair<std::string, char>> resultmap_t;
 typedef std::map<std::string, uint64_t> plossmap_t;
 
 // this listener places sha1 hashes of all streams in d_out
@@ -29,7 +29,9 @@ struct hashing_listener_t : public packet_listener_t
 		sha1 *sha = reinterpret_cast<sha1 *>(stream->userdata());
 		std::string key = to_str(*stream);
 		if (d_out.count(key) == 0)
-			d_out[key] = to_str(*sha);
+			d_out[key] = std::make_pair(
+					to_str(*sha),
+					stream->initiator() ? 'i' : 'r');
 	}
 
 	void update_loss(tcp_stream_t *stream, int packetloss)
@@ -72,25 +74,34 @@ struct hashing_listener_t : public packet_listener_t
 
 std::ostream &operator <<(std::ostream &os, const hashing_listener_t &l)
 {
-	for (std::map<std::string, std::string>::const_iterator i = l.d_out.begin(); i!=l.d_out.end(); ++i)
-		os << '(' << i->first << ", " << i->second << ')' << "\n";
+	for (const auto &i: l.d_out)
+		os << '(' << i.first << ", " << i.second.first << ") " << i.second.second << "\n";
 	return os;
 }
 
 bool compare(const resultmap_t &test, const resultmap_t &ref)
 {
 	bool result = true;
-	for (resultmap_t::const_iterator i = ref.begin(); i!= ref.end(); ++i)
+	for (const auto &refi: ref)
 	{
-		if (!test.count(i->first))
+		resultmap_t::const_iterator testi = test.find(refi.first);
+		if (testi == test.end())
 		{
 			result = false;
-			BOOST_ERROR(i->first + " not found in test");
+			BOOST_ERROR(refi.first + " not found in test");
 		}
-		else if (i->second != test.find(i->first)->second)
+		else
 		{
-			result = false;
-			BOOST_ERROR(i->first + " differs, got " + test.find(i->first)->second + " needed " + i->second);
+			if (refi.second.first != testi->second.first)
+			{
+				result = false;
+				BOOST_ERROR(refi.first + " differs, got " + testi->second.first + " needed " + refi.second.first);
+			}
+			else if (refi.second.second != testi->second.second)
+			{
+				result = false;
+				BOOST_ERROR(refi.first + " differs in direction, got " + testi->second.second + " needed " + refi.second.second);
+			}
 		}
 	}
 	for (resultmap_t::const_iterator i = test.begin(); i!= test.end(); ++i)
@@ -133,24 +144,26 @@ bool compare(const plossmap_t &test, const plossmap_t &ref)
 
 void get_ref_ipv4(resultmap_t &reference)
 {
+	typedef resultmap_t::mapped_type v;
 	// correct hashes for ref.pcap
-	reference["192.168.9.3:60254 -> 192.168.9.2:2001"] = "18456bb3 24b3b6ab 5674c21d a0b98b5e 32340a8d"; // i1
-	reference["192.168.9.2:2001 -> 192.168.9.3:60254"] = "2a80023e 426fc810 72f224a2 d4b6e9d3 d8de8452"; // r1
-	reference["192.168.9.3:47263 -> 192.168.9.2:2002"] = "7cc5a783 0f675484 376947e4 f4c4dbcf 7147e317"; // i2
-	reference["192.168.9.2:2002 -> 192.168.9.3:47263"] = "f0c4c232 5f199101 a8aec09d 48cb5abd b6cffefb"; // r2
-	reference["192.168.9.3:48273 -> 192.168.9.2:2003"] = "bd256242 4d82233f 45c13534 8e811dce a7598396"; // i3
-	reference["192.168.9.2:2003 -> 192.168.9.3:48273"] = "03381cd2 f3bd3be3 98bf93e5 11621e6c e0e8012f"; // r3
+	reference["192.168.9.3:60254 -> 192.168.9.2:2001"] = v("18456bb3 24b3b6ab 5674c21d a0b98b5e 32340a8d", 'i'); // i1
+	reference["192.168.9.2:2001 -> 192.168.9.3:60254"] = v("2a80023e 426fc810 72f224a2 d4b6e9d3 d8de8452", 'r'); // r1
+	reference["192.168.9.3:47263 -> 192.168.9.2:2002"] = v("7cc5a783 0f675484 376947e4 f4c4dbcf 7147e317", 'i'); // i2
+	reference["192.168.9.2:2002 -> 192.168.9.3:47263"] = v("f0c4c232 5f199101 a8aec09d 48cb5abd b6cffefb", 'r'); // r2
+	reference["192.168.9.3:48273 -> 192.168.9.2:2003"] = v("bd256242 4d82233f 45c13534 8e811dce a7598396", 'i'); // i3
+	reference["192.168.9.2:2003 -> 192.168.9.3:48273"] = v("03381cd2 f3bd3be3 98bf93e5 11621e6c e0e8012f", 'r'); // r3
 }
 
 void get_ref_ipv6(resultmap_t &reference)
 {
+	typedef resultmap_t::mapped_type v;
 	// correct hashes for ref_ipv6.pcap
-	reference["[2002::2]:37094 -> [2002::1]:9999"] = "18456bb3 24b3b6ab 5674c21d a0b98b5e 32340a8d"; // i1
-	reference["[2002::1]:9999 -> [2002::2]:37094"] = "2a80023e 426fc810 72f224a2 d4b6e9d3 d8de8452"; // r1
-	reference["[2002::2]:37093 -> [2002::1]:9999"] = "7cc5a783 0f675484 376947e4 f4c4dbcf 7147e317"; // i2
-	reference["[2002::1]:9999 -> [2002::2]:37093"] = "f0c4c232 5f199101 a8aec09d 48cb5abd b6cffefb"; // r2
-	reference["[2002::2]:37095 -> [2002::1]:9999"] = "bd256242 4d82233f 45c13534 8e811dce a7598396"; // i3
-	reference["[2002::1]:9999 -> [2002::2]:37095"] = "03381cd2 f3bd3be3 98bf93e5 11621e6c e0e8012f"; // r3
+	reference["[2002::2]:37094 -> [2002::1]:9999"] = v("18456bb3 24b3b6ab 5674c21d a0b98b5e 32340a8d", 'i'); // i1
+	reference["[2002::1]:9999 -> [2002::2]:37094"] = v("2a80023e 426fc810 72f224a2 d4b6e9d3 d8de8452", 'r'); // r1
+	reference["[2002::2]:37093 -> [2002::1]:9999"] = v("7cc5a783 0f675484 376947e4 f4c4dbcf 7147e317", 'i'); // i2
+	reference["[2002::1]:9999 -> [2002::2]:37093"] = v("f0c4c232 5f199101 a8aec09d 48cb5abd b6cffefb", 'r'); // r2
+	reference["[2002::2]:37095 -> [2002::1]:9999"] = v("bd256242 4d82233f 45c13534 8e811dce a7598396", 'i'); // i3
+	reference["[2002::1]:9999 -> [2002::2]:37095"] = v("03381cd2 f3bd3be3 98bf93e5 11621e6c e0e8012f", 'r'); // r3
 }
 
 BOOST_AUTO_TEST_CASE(ipv4)
@@ -233,3 +246,26 @@ BOOST_AUTO_TEST_CASE(ipv6)
 	BOOST_CHECK(compare(listener.d_loss, plossref));
 }
 
+void get_ref_only_synack(resultmap_t &reference)
+{
+	typedef resultmap_t::mapped_type v;
+	// correct hashes for ref.pcap
+	reference["192.168.9.3:48273 -> 192.168.9.2:2003"] = v("bd256242 4d82233f 45c13534 8e811dce a7598396", 'i'); // i
+	reference["192.168.9.2:2003 -> 192.168.9.3:48273"] = v("03381cd2 f3bd3be3 98bf93e5 11621e6c e0e8012f", 'r'); // r
+}
+
+BOOST_AUTO_TEST_CASE(missing_syn_have_synack)
+{
+	// we had a bug about directinos being wrong)
+	//
+	resultmap_t reference;
+	plossmap_t plossref;
+	get_ref_only_synack(reference);
+
+	hashing_listener_t listener;
+	pcap_reader_t reader(&listener);
+	reader.read_file("only_synack.pcap");
+
+	BOOST_CHECK(compare(listener.d_out, reference));
+	BOOST_CHECK(compare(listener.d_loss, plossref));
+}
