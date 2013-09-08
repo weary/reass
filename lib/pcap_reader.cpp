@@ -3,12 +3,12 @@
  */
 
 
-#include "pcap_reader.h"
-#include "packet_listener.h"
-#include "tcp_reassembler.h"
-#include "udp_reassembler.h"
-#include "config.h"
-#include "shared/misc.h"
+#include "reass/pcap_reader.h"
+#include "reass/packet_listener.h"
+#include "reass/tcp_reassembler.h"
+#include "reass/udp_reassembler.h"
+#include "reass/config.h"
+#include "reass/helpers/misc.h"
 
 namespace
 {

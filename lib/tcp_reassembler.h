@@ -6,10 +6,10 @@
 #ifndef __REASS_TCP_REASSEMBLER_H__
 #define __REASS_TCP_REASSEMBLER_H__
 
-#include "ip_address.h"
-#include "free_list.h"
-#include "timeout.h"
-#include "common_reassembler.h"
+#include "reass/ip_address.h"
+#include "reass/free_list.h"
+#include "reass/timeout.h"
+#include "reass/common_reassembler.h"
 #include <boost/functional/hash/hash.hpp>
 #include <boost/intrusive/unordered_set.hpp>
 #include <vector>

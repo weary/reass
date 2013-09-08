@@ -11,8 +11,8 @@
 #include <vector>
 #include <string.h>
 #include <stdint.h>
-#include "free_list.h"
-#include "config.h"
+#include "reass/free_list.h"
+#include "reass/config.h"
 
 enum layer_type
 {

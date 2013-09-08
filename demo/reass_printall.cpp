@@ -1,13 +1,12 @@
-#include "shared/misc.h"
-#include "packet.h"
-#include "packet_listener.h"
-#include "pcap_reader.h"
-#include "pcap_writer.h"
-#include "tcp_reassembler.h"
+#include "reass/packet.h"
+#include "reass/packet_listener.h"
+#include "reass/pcap_reader.h"
+#include "reass/pcap_writer.h"
+#include "reass/tcp_reassembler.h"
 #include <string>
 #include <string.h>
 #include <iostream>
-#include </usr/include/openssl/sha.h>
+#include <openssl/sha.h>
 #include <boost/foreach.hpp>
 
 class packet_listener_t;

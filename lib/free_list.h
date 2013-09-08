@@ -8,8 +8,8 @@
 
 #include <boost/noncopyable.hpp>
 #include <assert.h>
-#include "config.h"
-#include "force_inline.h"
+#include "reass/config.h"
+#include "reass/force_inline.h"
 
 // FIXME: could re-write this to use intrusive's slist,
 // and replace the d_delayed multimap with a sorted list

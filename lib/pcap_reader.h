@@ -6,9 +6,9 @@
 #ifndef __REASS_PCAP_READER_H__
 #define __REASS_PCAP_READER_H__
 
-#include "packet_listener.h"
-#include "free_list.h"
-#include "config.h"
+#include "reass/packet_listener.h"
+#include "reass/free_list.h"
+#include "reass/config.h"
 #include <string>
 #include <pcap.h>
 

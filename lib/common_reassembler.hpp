@@ -1,4 +1,4 @@
-#include "common_reassembler.h"
+#include "reass/common_reassembler.h"
 
 template<typename CRTP>
 FORCE_INLINE common_stream_t<CRTP>::common_stream_t(CRTP *&free_head) :

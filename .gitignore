@@ -1,5 +1,7 @@
 *.swp
 CMakeCache.txt
+CPack*.cmake
+/_CPack_Packages
 CMakeFiles
 Makefile
 cmake_install.cmake
@@ -8,5 +10,7 @@ pcap_manual_reorder
 reass_speedtest
 reass_printall
 unittest
+reass-0.1.1-Linux.deb
+reass-0.1.1-Linux.tar.gz
 /samples
 /samples_crap

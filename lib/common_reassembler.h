@@ -7,11 +7,11 @@
 #define __REASS_COMMON_REASSEMBLER_H__
 
 #include <boost/intrusive/unordered_set.hpp>
-#include "free_list.h"
-#include "ip_address.h"
-#include "timeout.h"
-#include "force_inline.h"
-#include "packet_listener.h"
+#include "reass/free_list.h"
+#include "reass/ip_address.h"
+#include "reass/timeout.h"
+#include "reass/force_inline.h"
+#include "reass/packet_listener.h"
 
 typedef boost::intrusive::unordered_set_base_hook<
 		boost::intrusive::link_mode<

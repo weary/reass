@@ -1,6 +1,5 @@
 #include "pcap_reader.h"
 #include "pcap_writer.h"
-#include "shared/misc.h"
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include "boost/scope_exit.hpp"

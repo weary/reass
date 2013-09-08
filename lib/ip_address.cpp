@@ -3,10 +3,10 @@
  */
 
 
-#include "ip_address.h"
+#include "reass/ip_address.h"
 #include <arpa/inet.h>
 #include <boost/functional/hash/hash.hpp>
-#include "netinet/in.h"
+#include <netinet/in.h>
 
 static_assert(sizeof(in6_addr) == 128/8, "ipv6 addresses must be 128 bits");
 

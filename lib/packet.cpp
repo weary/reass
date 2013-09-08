@@ -4,8 +4,8 @@
 
 #define __STDC_FORMAT_MACROS // for PRIu64
 
-#include "packet.h"
-#include "shared/misc.h"
+#include "reass/packet.h"
+#include "reass/helpers/misc.h"
 #include <net/ethernet.h>
 #include <net/if_ppp.h>
 #include <netinet/ip.h>

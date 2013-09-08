@@ -5,7 +5,6 @@ project(reass)
 #set(Boost_INCLUDE_DIRS "/usr/include")  # specify directory containing the "boost" subdirectory
 if (NOT Boost_INCLUDE_DIRS)
 	find_package( Boost REQUIRED )
-	message("${Boost_VERSION}")
 	if (NOT Boost_FOUND OR Boost_VERSION EQUAL 104800)
 		message("Boost NOT found (or boost 1.48 found, which is unusable)")
 		message(FATAL_ERROR "Please update the top CMakeLists.txt and specify your boost path in Boost_INCLUDE_DIRS")
@@ -40,3 +39,20 @@ subdirs(lib)
 subdirs(demo)
 subdirs(testcases)
 
+SET(CPACK_CMAKE_GENERATOR "Unix Makefiles")
+SET(CPACK_RESOURCE_FILE_LICENSE "LICENSE")
+SET(CPACK_RESOURCE_FILE_README "README")
+SET(CPACK_GENERATOR "TGZ;DEB")
+SET(CPACK_PACKAGE_CONTACT https://github.com/weary)
+SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libpcap-dev")
+
+# extract version number from git.
+# note that this only runs during configure
+execute_process(
+  COMMAND git describe
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	OUTPUT_VARIABLE CPACK_PACKAGE_VERSION
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+include(CPack)

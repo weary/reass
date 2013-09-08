@@ -6,7 +6,7 @@
 #ifndef __REASS_PACKET_LISTENER_H__
 #define __REASS_PACKET_LISTENER_H__
 
-#include "packet.h"
+#include "reass/packet.h"
 
 struct tcp_stream_t;
 struct udp_stream_t;

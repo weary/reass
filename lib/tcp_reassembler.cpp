@@ -3,11 +3,11 @@
  */
 
 
-#include "tcp_reassembler.h"
-#include "packet_listener.h"
-#include "shared/misc.h"
-#include "config.h"
-#include "likely.h"
+#include "reass/tcp_reassembler.h"
+#include "reass/packet_listener.h"
+#include "reass/helpers/misc.h"
+#include "reass/config.h"
+#include "reass/likely.h"
 #include <boost/version.hpp>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>

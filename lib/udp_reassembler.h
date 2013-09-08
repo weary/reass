@@ -7,7 +7,7 @@
 #define __REASS_UDP_REASSEMBLER_H__
 
 #include <list>
-#include "common_reassembler.h"
+#include "reass/common_reassembler.h"
 
 // FIXME: refactor options:
 // udp_reassembler_t::stream_set_t is same as tcp (except for contained type)

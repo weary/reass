@@ -3,9 +3,9 @@
  */
 
 
-#include "udp_reassembler.h"
-#include "packet_listener.h"
-#include "shared/misc.h"
+#include "reass/udp_reassembler.h"
+#include "reass/packet_listener.h"
+#include "reass/helpers/misc.h"
 #include <boost/version.hpp>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>

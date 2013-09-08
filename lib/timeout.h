@@ -7,7 +7,7 @@
 
 #include <boost/intrusive/list.hpp>
 #include <boost/array.hpp>
-#include "shared/misc.h"
+#include "reass/helpers/misc.h"
 
 typedef boost::intrusive::list_base_hook<
 		boost::intrusive::link_mode<
