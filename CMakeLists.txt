@@ -2,9 +2,11 @@ cmake_minimum_required (VERSION 2.8)
 
 project(reass)
 
+enable_testing()
+
 #set(Boost_INCLUDE_DIRS "/usr/include")  # specify directory containing the "boost" subdirectory
 if (NOT Boost_INCLUDE_DIRS)
-	find_package( Boost REQUIRED )
+	find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 	if (NOT Boost_FOUND OR Boost_VERSION EQUAL 104800)
 		message("Boost NOT found (or boost 1.48 found, which is unusable)")
 		message(FATAL_ERROR "Please update the top CMakeLists.txt and specify your boost path in Boost_INCLUDE_DIRS")
@@ -12,7 +14,7 @@ if (NOT Boost_INCLUDE_DIRS)
 endif()
 
 IF(NOT DEFINED CMAKE_BUILD_TYPE)
-   SET(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel.")
+	SET(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel.")
 ENDIF()
 
 add_definitions(-Wall)
@@ -49,10 +51,10 @@ SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libpcap-dev")
 # extract version number from git.
 # note that this only runs during configure
 execute_process(
-  COMMAND git describe
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	COMMAND git describe
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	OUTPUT_VARIABLE CPACK_PACKAGE_VERSION
-  OUTPUT_STRIP_TRAILING_WHITESPACE
+	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
 include(CPack)
