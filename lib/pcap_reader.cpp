@@ -21,16 +21,17 @@ struct pcap_close_guard_t
 
 }; // end of nameless namespace
 
-pcap_reader_t::pcap_reader_t(packet_listener_t *listener) :
+pcap_reader_t::pcap_reader_t(packet_listener_t *listener,
+		bool enable_tcp, bool enable_udp) :
 	free_list_container_t<packet_t>(0),
 	d_pcap(nullptr), d_listener(listener),
-#ifdef PRINT_STATS
 	d_packetnr(0),
-#endif
 	d_tcp_reassembler(nullptr), d_udp_reassembler(nullptr)
 {
-	enable_tcp_reassembly(true);
-	enable_udp_reassembly(true);
+	if (enable_tcp)
+		enable_tcp_reassembly(true);
+	if (enable_udp)
+		enable_udp_reassembly(true);
 }
 
 pcap_reader_t::~pcap_reader_t()
@@ -163,9 +164,7 @@ void pcap_reader_t::enable_udp_reassembly(bool en)
 // called whenever libpcap has a packet
 void pcap_reader_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *data)
 {
-#ifdef PRINT_STATS
 	++d_packetnr;
-#endif
 
 	packet_t *packet = claim(); // get space from free list (or new if free list was empty)
 

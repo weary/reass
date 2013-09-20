@@ -17,7 +17,8 @@ struct udp_reassembler_t;
 
 struct pcap_reader_t : private free_list_container_t<packet_t>
 {
-	pcap_reader_t(packet_listener_t *listener = NULL);
+	pcap_reader_t(packet_listener_t *listener = NULL,
+			bool enable_tcp = true, bool enable_udp = true);
 	~pcap_reader_t();
 
 	// read_file does open_file, read_packets, close_file together
@@ -41,6 +42,9 @@ struct pcap_reader_t : private free_list_container_t<packet_t>
 
 	tcp_reassembler_t *tcp_reassembler() const { return d_tcp_reassembler; }
 	udp_reassembler_t *udp_reassembler() const { return d_udp_reassembler; }
+
+	uint64_t packets_seen() const { return d_packetnr; }
+
 protected:
 	void handle_packet(const struct pcap_pkthdr *hdr, const u_char *data); // callback from libpcap
 #ifdef NO_MEMBER_CALLBACK
@@ -54,9 +58,7 @@ protected:
 	int d_linktype;
 	packet_listener_t *d_listener;
 
-#ifdef PRINT_STATS
 	uint64_t d_packetnr;
-#endif
 
 	tcp_reassembler_t *d_tcp_reassembler;
 	udp_reassembler_t *d_udp_reassembler;
