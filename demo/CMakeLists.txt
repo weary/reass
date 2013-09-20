@@ -1,7 +1,5 @@
 cmake_minimum_required (VERSION 2.8)
 
-include_directories(../lib)
-
 add_executable(reass_speedtest reass_speedtest.cpp)
 target_link_libraries(reass_speedtest reass)
 
