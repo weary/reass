@@ -35,6 +35,21 @@ timeval operator +(const timeval &l, const timeval &r)
 	return out;
 }
 
+
+inline
+timeval operator -(const timeval &l, const timeval &r)
+{
+	timeval out = l;
+	out.tv_sec -= r.tv_sec;
+	while (r.tv_usec > out.tv_usec)
+	{
+		out.tv_sec--;
+		out.tv_usec += 1000000;
+	}
+	out.tv_usec -= r.tv_usec;
+	return out;
+}
+
 inline
 std::string to_str(const timeval&t_)
 {

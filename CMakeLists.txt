@@ -6,7 +6,7 @@ enable_testing()
 
 #set(Boost_INCLUDE_DIRS "/usr/include")  # specify directory containing the "boost" subdirectory
 if (NOT Boost_INCLUDE_DIRS)
-	find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+	find_package(Boost REQUIRED COMPONENTS unit_test_framework regex)
 	if (NOT Boost_FOUND OR Boost_VERSION EQUAL 104800)
 		message("Boost NOT found (or boost 1.48 found, which is unusable)")
 		message(FATAL_ERROR "Please update the top CMakeLists.txt and specify your boost path in Boost_INCLUDE_DIRS")
