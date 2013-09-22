@@ -1,10 +1,4 @@
-#include "reass/packet.h"
-#include "reass/packet_listener.h"
-#include "reass/pcap_reader.h"
-#include "reass/pcap_writer.h"
-#include "reass/tcp_reassembler.h"
-#include "reass/helpers/timeval_helpers.h"
-#include <boost/regex.hpp>
+#include "reass_find.h"
 
 // commandline settings
 bool g_verbose = false;
@@ -16,70 +10,6 @@ enum { ts_none, ts_utc, ts_rel, ts_abs, ts_abs_with_date } g_timestamp_format = 
 // when writing pcaps, gather needed packetnr's here
 std::vector<uint64_t> g_matched_packets;
 struct timeval g_start = {0, 0};
-
-class regex_stream_t
-{
-public:
-	regex_stream_t(const boost::regex &regex);
-	~regex_stream_t();
-
-	void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream);
-
-protected:
-	void print_match_timestamp();
-
-	const boost::regex &d_regex;
-	bool d_matched;
-
-	std::string d_data;
-	struct timeval d_match_timestamp;
-
-	std::vector<uint64_t> d_packets; // only filled if g_write_pcap
-};
-
-class regex_matcher_t : public packet_listener_t
-{
-public:
-	regex_matcher_t(const std::string &regex);
-
-	void set_pcap_reader(const pcap_reader_t *reader) { d_reader = reader; }
-
-protected:
-	//void begin_capture(const std::string &name, int linktype, int snaplen);
-	void accept(packet_t *packet);
-	void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream);
-	void accept_error(packet_t *packet, const char *error);
-
-	boost::regex d_regex;
-	const pcap_reader_t *d_reader;
-
-	tcp_reassembler_t d_reassembler;
-
-	int d_linktype;
-	int d_snaplen;
-};
-
-class stream_writer_t : public packet_listener_t
-{
-public:
-	stream_writer_t(const std::string &outname);
-	~stream_writer_t();
-
-	void set_pcap_reader(const pcap_reader_t *reader) { d_reader = reader; }
-
-protected:
-	void begin_capture(const std::string &name, int linktype, int snaplen);
-	void accept(packet_t *packet);
-
-	const pcap_reader_t *d_reader;
-	pcap_writer_t *d_writer;
-	const std::string d_fname;
-
-	std::vector<uint64_t>::const_iterator d_match_iter;
-
-	int d_linktype;
-	int d_snaplen;
-};
 
 
 /******************
@@ -212,8 +142,7 @@ void regex_stream_t::print_match_timestamp()
  ******************/
 
 regex_matcher_t::regex_matcher_t(const std::string &regex) :
-	d_regex(regex), d_reader(NULL), d_reassembler(this),
-	d_linktype(0), d_snaplen(0)
+	d_regex(regex), d_reader(NULL), d_reassembler(this)
 {}
 
 void regex_matcher_t::accept(packet_t *packet)
