@@ -38,9 +38,9 @@ public:
 	regex_matcher_t(const std::string &regex);
 
 	void set_pcap_reader(const pcap_reader_t *reader) { d_reader = reader; }
+	void flush() { d_reassembler.flush(); }
 
 protected:
-	//void begin_capture(const std::string &name, int linktype, int snaplen);
 	void accept(packet_t *packet);
 	void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream);
 	void accept_error(packet_t *packet, const char *error);
@@ -54,18 +54,20 @@ protected:
 class stream_writer_t : public packet_listener_t
 {
 public:
-	stream_writer_t(const std::string &outname);
+	stream_writer_t(const std::string &outname, const std::string &bpf);
 	~stream_writer_t();
 
-	void set_pcap_reader(const pcap_reader_t *reader) { d_reader = reader; }
+	void write_pcap();
 
 protected:
 	void begin_capture(const std::string &name, int linktype, int snaplen);
 	void accept(packet_t *packet);
 
-	const pcap_reader_t *d_reader;
+	pcap_reader_t d_reader;
+	std::string d_bpf;
 	pcap_writer_t *d_writer;
 	const std::string d_fname;
+	uint64_t d_first_packetnr_in_next_file;
 
 	std::vector<uint64_t>::const_iterator d_match_iter;
 

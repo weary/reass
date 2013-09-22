@@ -31,6 +31,7 @@ struct pcap_reader_t : private free_list_container_t<packet_t>
 	void read_packets(); // read one bufferful of packets
 
 	void set_listener(packet_listener_t *listener);
+	void stop_reading(); // stop pcap_readpackets
 	void flush();
 
 	void enable_tcp_reassembly(bool en); // enabled by default
@@ -44,6 +45,7 @@ struct pcap_reader_t : private free_list_container_t<packet_t>
 	udp_reassembler_t *udp_reassembler() const { return d_udp_reassembler; }
 
 	uint64_t packets_seen() const { return d_packetnr; }
+	void reset_packetcounter(uint64_t newval = 0) { d_packetnr = newval; }
 
 protected:
 	void handle_packet(const struct pcap_pkthdr *hdr, const u_char *data); // callback from libpcap

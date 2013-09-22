@@ -4,13 +4,16 @@
 bool g_verbose = false;
 bool g_write_pcap = false;
 bool g_trailing_newline = true;
+bool g_expand_packetloss = true;
 enum { print_none, print_first, print_all } g_print_matches = print_all;
 enum { ts_none, ts_utc, ts_rel, ts_abs, ts_abs_with_date } g_timestamp_format = ts_none;
 
 // when writing pcaps, gather needed packetnr's here
 std::vector<uint64_t> g_matched_packets;
 struct timeval g_start = {0, 0};
-
+// map from first packetnr in file to filename
+typedef std::map<uint64_t, std::string> filemap_t;
+filemap_t g_files;
 
 /******************
  * regex_stream_t *
@@ -39,7 +42,7 @@ void regex_stream_t::accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *
 	}
 	if (d_matched && g_print_matches != print_all) return; // already done
 
-	if (packetloss)
+	if (packetloss && g_expand_packetloss)
 		d_data.append(packetloss, 'X');
 
 	if (!packet)
@@ -85,6 +88,8 @@ match_start:
 		if (g_print_matches != print_none)
 		{
 			print_match_timestamp();
+
+			// FIXME, need tty-detection and binary detection
 			if (g_trailing_newline)
 				printf("%s\n", what[0].str().c_str());
 			else
@@ -189,7 +194,7 @@ void regex_matcher_t::accept_tcp(packet_t *packet, int packetloss, tcp_stream_t 
 void regex_matcher_t::accept_error(packet_t *packet, const char *error)
 {
 	if (g_verbose)
-		printf("error parsing packet %ld: %s\n", d_reader->packets_seen(), error);
+		fprintf(stderr, "error parsing packet %ld: %s\n", d_reader->packets_seen(), error);
 	packet->release();
 }
 
@@ -198,11 +203,31 @@ void regex_matcher_t::accept_error(packet_t *packet, const char *error)
  * stream_writer_t *
  ******************/
 
-stream_writer_t::stream_writer_t(const std::string &outname) :
-	d_reader(NULL), d_writer(NULL),
-	d_fname(outname), d_match_iter(g_matched_packets.begin()),
+stream_writer_t::stream_writer_t(
+		const std::string &outname, const std::string &bpf) :
+	d_reader(this, false, false), d_bpf(bpf), d_writer(NULL),
+d_fname(outname), d_match_iter(g_matched_packets.begin()),
 	d_linktype(0), d_snaplen(0)
 {
+}
+
+void stream_writer_t::write_pcap()
+{
+	while (d_match_iter != g_matched_packets.end())
+	{
+		uint64_t packetnr = *d_match_iter;
+		filemap_t::const_iterator fi = g_files.upper_bound(packetnr);
+		d_first_packetnr_in_next_file = fi->first; // stop condition
+		--fi;
+
+		if (g_verbose)
+			fprintf(stderr, "re-reading file '%s' for packet-extraction\n",
+					fi->second.c_str());
+
+		d_reader.reset_packetcounter(fi->first - 1);
+		d_reader.read_file(fi->second, d_bpf);
+		d_reader.flush();
+	}
 }
 
 stream_writer_t::~stream_writer_t()
@@ -228,10 +253,9 @@ void stream_writer_t::accept(packet_t *packet)
 {
 	auto_release_t<packet_t> releaser(packet);
 
-	if (d_match_iter == g_matched_packets.end())
-		return;
+	assert(d_match_iter != g_matched_packets.end());
 
-	uint64_t cur = d_reader->packets_seen();
+	uint64_t cur = d_reader.packets_seen();
 	uint64_t next_needed = *d_match_iter;
 	assert(next_needed >= cur);
 	if (next_needed < cur)
@@ -241,6 +265,9 @@ void stream_writer_t::accept(packet_t *packet)
 	{
 		++d_match_iter;
 		d_writer->add(packet);
+		if (d_match_iter == g_matched_packets.end() ||
+				*d_match_iter >= d_first_packetnr_in_next_file)
+			d_reader.stop_reading();
 	}
 }
 
@@ -283,7 +310,7 @@ int main(int argc, char *argv[])
 		else if (arg == "--no-trailing-newline")
 			g_trailing_newline = false;
 		else if (arg == "-v" || arg == "--verbose")
-			g_verbose = false;
+			g_verbose = true;
 		else if (arg == "-q" || arg == "--quiet")
 			quiet = true;
 		else if (arg == "-t")
@@ -313,8 +340,19 @@ int main(int argc, char *argv[])
 		pcap_reader_t reader(&matcher, false, false);
 		matcher.set_pcap_reader(&reader);
 		for(const std::string &name: positional)
+		{
+			if (g_verbose)
+				fprintf(stderr, "reading file '%s', have seen %ld packets so far\n",
+						name.c_str(), reader.packets_seen());
+			g_files[reader.packets_seen() + 1] = name;
 			reader.read_file(name, filter);
-		reader.flush();
+			reader.flush();
+		}
+		if (g_verbose)
+			fprintf(stderr, "read %ld packets total\n",
+					reader.packets_seen());
+		g_files[reader.packets_seen() + 1] = std::string();
+		matcher.flush();
 	}
 
 	if (g_write_pcap)
@@ -323,20 +361,14 @@ int main(int argc, char *argv[])
 			throw std::runtime_error("nothing matched, no pcap written");
 
 		if (g_verbose)
-			printf("opening '%s' for writing %ld packets\n",
+			fprintf(stderr, "opening '%s' for writing %ld packets\n",
 					outname.c_str(), g_matched_packets.size());
 
 		std::sort(g_matched_packets.begin(), g_matched_packets.end());
 
-		stream_writer_t writer(outname);
-		pcap_reader_t reader(&writer, false, false);
-		writer.set_pcap_reader(&reader);
-		// FIXME: no need to read all files again if we only need packets from a few
-		for(const std::string &name: positional)
-			reader.read_file(name, filter);
-		reader.flush();
+		stream_writer_t(outname, filter).write_pcap();
 		if (g_verbose)
-			printf("done writing pcap\n");
+			fprintf(stderr, "done writing pcap\n");
 	}
 }
 catch(const std::exception &e)

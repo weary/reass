@@ -130,6 +130,11 @@ void pcap_reader_t::set_listener(packet_listener_t *listener)
 	d_listener = listener;
 }
 
+void pcap_reader_t::stop_reading()
+{
+	pcap_breakloop(d_pcap);
+}
+
 void pcap_reader_t::flush()
 {
 	if (d_tcp_reassembler)
