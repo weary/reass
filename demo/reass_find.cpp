@@ -15,6 +15,8 @@ struct timeval g_start = {0, 0};
 typedef std::map<uint64_t, std::string> filemap_t;
 filemap_t g_files;
 
+const boost::regex_constants::match_flag_type match_flags = boost::match_default;
+
 /******************
  * regex_stream_t *
  ******************/
@@ -40,42 +42,54 @@ void regex_stream_t::accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *
 		uint64_t packetnr = (uint64_t)packet->userdata();
 		d_packets.push_back(packetnr);
 	}
-	if (d_matched && g_print_matches != print_all) return; // already done
+	if (d_matched && g_print_matches != print_all)
+		return; // already done
 
 	if (packetloss && g_expand_packetloss)
 		d_data.append(packetloss, 'X');
 
-	if (!packet)
-		return;
-
-	layer_t *toplayer = packet->layer(-1);
-	if (!toplayer || toplayer->type() != layer_data || !toplayer->size())
-		return;
 
 	const char *cbegin, *cend;
-	if (!d_data.empty())
+	if (packet)
 	{
-		d_data.append((const char *)toplayer->begin(), toplayer->size());
-		cbegin = &d_data[0];
-		cend = cbegin + d_data.size();
+		layer_t *toplayer = packet->layer(-1);
+		if (!toplayer || toplayer->type() != layer_data || !toplayer->size())
+			return;
+
+		if (!d_data.empty())
+		{
+			d_data.append((const char *)toplayer->begin(), toplayer->size());
+			cbegin = &d_data[0];
+			cend = cbegin + d_data.size();
+		}
+		else
+		{
+			cbegin = (const char *)toplayer->begin();
+			cend = cbegin + toplayer->size();
+			d_match_timestamp = packet->ts();
+		}
 	}
 	else
 	{
-		cbegin = (const char *)toplayer->begin();
-		cend = cbegin + toplayer->size();
-		d_match_timestamp = packet->ts();
+		// end of stream. might still be a hit in d_data
+		if (d_data.empty())
+			return;
+		cbegin = &d_data[0];
+		cend = cbegin + d_data.size();
 	}
 
 match_start:
 	boost::match_results<const char *> what;
 	bool at_least_partial = boost::regex_search(
-			cbegin, cend, what, d_regex, boost::match_default | boost::match_partial);
+			cbegin, cend, what, d_regex, match_flags | boost::match_partial);
+
 	if (!at_least_partial)
 	{
 		d_data.clear();
 		return;
 	}
-	else if (what[0].matched)
+	else if (what[0].matched &&
+			(!packet || what[0].second != cend))
 	{ // hit
 		d_matched = true;
 		if (stream->have_partner())
@@ -87,15 +101,9 @@ match_start:
 
 		if (g_print_matches != print_none)
 		{
-			print_match_timestamp();
+			print(d_match_timestamp, what[0].str());
 
-			// FIXME, need tty-detection and binary detection
-			if (g_trailing_newline)
-				printf("%s\n", what[0].str().c_str());
-			else
-				printf("%s", what[0].str().c_str());
-
-			if (g_print_matches == print_all)
+			if (g_print_matches == print_all && packet)
 			{ // check for second hit in same packet
 				cbegin = what[0].second;
 				d_match_timestamp = packet->ts();
@@ -111,18 +119,18 @@ match_start:
 	}
 }
 
-void regex_stream_t::print_match_timestamp()
+void regex_stream_t::print(const timeval &tv, const std::string &s)
 {
 	switch(g_timestamp_format)
 	{
 		case(ts_none):
 			break;
 		case(ts_utc):
-			printf("%d.%06d ", (int)d_match_timestamp.tv_sec, (int)d_match_timestamp.tv_usec);
+			printf("%d.%06d ", (int)tv.tv_sec, (int)tv.tv_usec);
 			break;
 		case(ts_rel):
 			{
-				timeval rel = d_match_timestamp - g_start;
+				timeval rel = tv - g_start;
 				printf("%d.%06d ", (int)rel.tv_sec, (int)rel.tv_usec);
 			}
 			break;
@@ -133,12 +141,20 @@ void regex_stream_t::print_match_timestamp()
 
 				char outstr[200];
 				struct tm tmp;
-				localtime_r(&d_match_timestamp.tv_sec, &tmp);
+				localtime_r(&tv.tv_sec, &tmp);
 				strftime(outstr, sizeof(outstr), format, &tmp);
-				printf("%s.%06d ", outstr, (int)d_match_timestamp.tv_usec);
+				printf("%s.%06d ", outstr, (int)tv.tv_usec);
 			}
 			break;
 	}
+
+	// FIXME, need tty-detection and binary detection
+
+	if (g_trailing_newline)
+		printf("%s\n", s.c_str());
+	else
+		printf("%s", s.c_str());
+
 }
 
 
@@ -148,7 +164,13 @@ void regex_stream_t::print_match_timestamp()
 
 regex_matcher_t::regex_matcher_t(const std::string &regex) :
 	d_regex(regex), d_reader(NULL), d_reassembler(this)
-{}
+{
+	boost::match_results<std::string::const_iterator> what;
+	bool matched = boost::regex_search(
+			std::string("something"), what, d_regex, match_flags);
+	if (matched && what[0].first == what[0].second)
+		throw std::runtime_error("invalid regex, matches empty string");
+}
 
 void regex_matcher_t::accept(packet_t *packet)
 {

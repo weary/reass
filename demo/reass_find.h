@@ -20,7 +20,7 @@ public:
 	void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream);
 
 protected:
-	void print_match_timestamp();
+	void print(const timeval &tv, const std::string &s);
 
 	const boost::regex &d_regex;
 	bool d_matched;
