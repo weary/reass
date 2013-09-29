@@ -25,12 +25,13 @@ SET(HEADERS
 SET(HELPERS
 		helpers/misc.h
 		helpers/timeval_helpers.h)
-add_library(reass ${SOURCES})
-target_link_libraries(reass pcap)
+add_library(libreass ${SOURCES})
+set_target_properties(libreass PROPERTIES OUTPUT_NAME "reass")
+target_link_libraries(libreass pcap)
 
 INSTALL(FILES ${HEADERS} DESTINATION include/reass)
 INSTALL(FILES ${HELPERS} DESTINATION include/reass/helpers)
-INSTALL(TARGETS reass
+INSTALL(TARGETS libreass
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
 	ARCHIVE DESTINATION lib)

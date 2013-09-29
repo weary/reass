@@ -8,7 +8,7 @@ if(Boost_UNIT_TEST_FRAMEWORK_LIBRARY)
 			testmain.cpp)
 
 	target_link_libraries(unittest ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
-	target_link_libraries(unittest reass)
+	target_link_libraries(unittest libreass)
 
 	add_test(Unittests unittest)
 else()

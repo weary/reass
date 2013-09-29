@@ -1,4 +1,4 @@
-#include "reass_find.h"
+#include "rass.h"
 
 // commandline settings
 bool g_verbose = false;
