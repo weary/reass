@@ -367,8 +367,16 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "reading file '%s', have seen %ld packets so far\n",
 						name.c_str(), reader.packets_seen());
 			g_files[reader.packets_seen() + 1] = name;
-			reader.read_file(name, filter);
-			reader.flush();
+			try
+			{
+				reader.read_file(name, filter);
+				reader.flush();
+			}
+			catch(const std::exception &e)
+			{
+				fprintf(stderr, "Error reading file '%s': %s\n",
+						name.c_str(), e.what());
+			}
 		}
 		if (g_verbose)
 			fprintf(stderr, "read %ld packets total\n",
