@@ -18,7 +18,7 @@ IF(NOT DEFINED CMAKE_BUILD_TYPE)
 ENDIF()
 
 add_definitions(-Wall)
-add_definitions(-std=gnu++0x)
+#add_definitions(-std=gnu++0x)
 add_definitions(-DBOOST_TEST_DYN_LINK)
 add_definitions(-march=native)
 

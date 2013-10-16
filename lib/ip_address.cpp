@@ -6,9 +6,10 @@
 #include "reass/ip_address.h"
 #include <arpa/inet.h>
 #include <boost/functional/hash/hash.hpp>
+#include <boost/static_assert.hpp>
 #include <netinet/in.h>
 
-static_assert(sizeof(in6_addr) == 128/8, "ipv6 addresses must be 128 bits");
+BOOST_STATIC_ASSERT_MSG(sizeof(in6_addr) == 128/8, "ipv6 addresses must be 128 bits");
 
 static inline
 bool operator ==(const in6_addr &l, const in6_addr &r)
@@ -25,7 +26,7 @@ bool operator ==(const in6_addr &l, const in6_addr &r)
 #endif
 }
 
-static_assert(offsetof(ip_address_t, v4.sin_port) == offsetof(ip_address_t, v6.sin6_port), "structure alignment issue");
+BOOST_STATIC_ASSERT_MSG(offsetof(ip_address_t, v4.sin_port) == offsetof(ip_address_t, v6.sin6_port), "structure alignment issue");
 
 std::string ip_address_t::ip() const
 {

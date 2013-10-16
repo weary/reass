@@ -1,12 +1,13 @@
 #include "rass.h"
+#include <boost/foreach.hpp>
 
 // commandline settings
 bool g_verbose = false;
 bool g_write_pcap = false;
 bool g_trailing_newline = true;
 bool g_expand_packetloss = true;
-enum { print_none, print_first, print_all } g_print_matches = print_all;
-enum { ts_none, ts_utc, ts_rel, ts_abs, ts_abs_with_date } g_timestamp_format = ts_none;
+static enum { print_none, print_first, print_all } g_print_matches = print_all;
+static enum { ts_none, ts_utc, ts_rel, ts_abs, ts_abs_with_date } g_timestamp_format = ts_none;
 
 // when writing pcaps, gather needed packetnr's here
 std::vector<uint64_t> g_matched_packets;
@@ -361,7 +362,7 @@ int main(int argc, char *argv[])
 		positional.erase(positional.begin());
 		pcap_reader_t reader(&matcher, false, false);
 		matcher.set_pcap_reader(&reader);
-		for(const std::string &name: positional)
+		BOOST_FOREACH(const std::string &name, positional)
 		{
 			if (g_verbose)
 				fprintf(stderr, "reading file '%s', have seen %ld packets so far\n",

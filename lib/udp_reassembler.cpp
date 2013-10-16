@@ -7,13 +7,14 @@
 #include "reass/packet_listener.h"
 #include "reass/helpers/misc.h"
 #include <boost/version.hpp>
+#include <boost/foreach.hpp>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 
-static_assert(BOOST_VERSION != 104800, "bug 6153 in boost::intrusive in boost 1.48 prevents compilation");  // see https://svn.boost.org/trac/boost/ticket/6153
-static_assert(offsetof(sockaddr_in,sin_port) == offsetof(sockaddr_in6,sin6_port), "ipv4 and ipv6 port number alignment broken");
-static_assert(sizeof(ip_address_t) == sizeof(sockaddr_in6), "structure size broken");
+BOOST_STATIC_ASSERT_MSG(BOOST_VERSION != 104800, "bug 6153 in boost::intrusive in boost 1.48 prevents compilation");  // see https://svn.boost.org/trac/boost/ticket/6153
+BOOST_STATIC_ASSERT_MSG(offsetof(sockaddr_in,sin_port) == offsetof(sockaddr_in6,sin6_port), "ipv4 and ipv6 port number alignment broken");
+BOOST_STATIC_ASSERT_MSG(sizeof(ip_address_t) == sizeof(sockaddr_in6), "structure size broken");
 
 
 uint64_t udp_stream_t::timeout() const
@@ -120,7 +121,7 @@ void udp_stream_t::replay_delayed()
 	assert(!d_delayed.empty());
 	assert(is_partner_set());
 
-	for(packet_t *packet: d_delayed)
+	BOOST_FOREACH(packet_t *packet, d_delayed)
 	{
 		const layer_t *udplay = find_top_nondata_layer(packet);
 		assert(udplay && udplay->type() == layer_udp);
@@ -227,7 +228,7 @@ void udp_reassembler_t::process(packet_t *packet)
 	assert(udplay && udplay->type() == layer_udp);
 
 	stream_set_t::iterator it = find_or_create_stream(packet, udplay);
-	udp_stream_t *partner = (it->have_partner() ? it->partner() : nullptr);
+	udp_stream_t *partner = (it->have_partner() ? it->partner() : NULL);
 
 	it->add(packet, udplay);
 

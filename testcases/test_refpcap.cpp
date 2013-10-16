@@ -15,7 +15,7 @@ std::string to_str(sha1 &hash)
 	return buf;
 }
 
-typedef std::map<std::string, std::pair<std::string, char>> resultmap_t;
+typedef std::map<std::string, std::pair<std::string, char> > resultmap_t;
 typedef std::map<std::string, uint64_t> plossmap_t;
 
 // this listener places sha1 hashes of all streams in d_out
@@ -74,33 +74,33 @@ struct hashing_listener_t : public packet_listener_t
 
 std::ostream &operator <<(std::ostream &os, const hashing_listener_t &l)
 {
-	for (const auto &i: l.d_out)
-		os << '(' << i.first << ", " << i.second.first << ") " << i.second.second << "\n";
+	for(resultmap_t::const_iterator i=l.d_out.begin(); i!=l.d_out.end(); ++i)
+		os << '(' << i->first << ", " << i->second.first << ") " << i->second.second << "\n";
 	return os;
 }
 
 bool compare(const resultmap_t &test, const resultmap_t &ref)
 {
 	bool result = true;
-	for (const auto &refi: ref)
+	for(resultmap_t::const_iterator refi=ref.begin(); refi!=ref.end(); ++refi)
 	{
-		resultmap_t::const_iterator testi = test.find(refi.first);
+		resultmap_t::const_iterator testi = test.find(refi->first);
 		if (testi == test.end())
 		{
 			result = false;
-			BOOST_ERROR(refi.first + " not found in test");
+			BOOST_ERROR(refi->first + " not found in test");
 		}
 		else
 		{
-			if (refi.second.first != testi->second.first)
+			if (refi->second.first != testi->second.first)
 			{
 				result = false;
-				BOOST_ERROR(refi.first + " differs, got " + testi->second.first + " needed " + refi.second.first);
+				BOOST_ERROR(refi->first + " differs, got " + testi->second.first + " needed " + refi->second.first);
 			}
-			else if (refi.second.second != testi->second.second)
+			else if (refi->second.second != testi->second.second)
 			{
 				result = false;
-				BOOST_ERROR(refi.first + " differs in direction, got " + testi->second.second + " needed " + refi.second.second);
+				BOOST_ERROR(refi->first + " differs in direction, got " + testi->second.second + " needed " + refi->second.second);
 			}
 		}
 	}

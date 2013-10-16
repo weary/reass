@@ -15,7 +15,7 @@ namespace
 struct pcap_close_guard_t
 {
 	pcap_close_guard_t(pcap_t *&pcap) : d_pcap(pcap) {}
-	~pcap_close_guard_t() { if (d_pcap) { pcap_close(d_pcap); d_pcap = nullptr; } }
+	~pcap_close_guard_t() { if (d_pcap) { pcap_close(d_pcap); d_pcap = NULL; } }
 	pcap_t *&d_pcap;
 };
 
@@ -24,9 +24,9 @@ struct pcap_close_guard_t
 pcap_reader_t::pcap_reader_t(packet_listener_t *listener,
 		bool enable_tcp, bool enable_udp) :
 	free_list_container_t<packet_t>(0),
-	d_pcap(nullptr), d_listener(listener),
+	d_pcap(NULL), d_listener(listener),
 	d_packetnr(0),
-	d_tcp_reassembler(nullptr), d_udp_reassembler(nullptr)
+	d_tcp_reassembler(NULL), d_udp_reassembler(NULL)
 {
 	if (enable_tcp)
 		enable_tcp_reassembly(true);
@@ -85,7 +85,7 @@ void pcap_reader_t::close_file()
 		throw format_exception("Cannot close pcap without opened pcap");
 
 	pcap_close(d_pcap);
-	d_pcap = nullptr;
+	d_pcap = NULL;
 }
 
 void pcap_reader_t::open_live_capture(const std::string &device, bool promiscuous, const std::string &bpf)
@@ -118,7 +118,7 @@ void pcap_reader_t::set_bpf(const std::string &bpf)
 void pcap_reader_t::close_live_capture()
 {
 	pcap_close(d_pcap);
-	d_pcap = nullptr;
+	d_pcap = NULL;
 }
 
 void pcap_reader_t::set_listener(packet_listener_t *listener)
@@ -162,7 +162,7 @@ void pcap_reader_t::enable_udp_reassembly(bool en)
 	else if (!en && d_udp_reassembler)
 	{
 		delete d_udp_reassembler;
-		d_udp_reassembler = nullptr;
+		d_udp_reassembler = NULL;
 	}
 }
 

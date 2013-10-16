@@ -13,9 +13,9 @@
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 
-static_assert(BOOST_VERSION != 104800, "bug 6153 in boost::intrusive in boost 1.48 prevents compilation");  // see https://svn.boost.org/trac/boost/ticket/6153
-static_assert(offsetof(sockaddr_in,sin_port) == offsetof(sockaddr_in6,sin6_port), "ipv4 and ipv6 port number alignment broken");
-static_assert(sizeof(ip_address_t) == sizeof(sockaddr_in6), "structure size broken");
+BOOST_STATIC_ASSERT_MSG(BOOST_VERSION != 104800, "bug 6153 in boost::intrusive in boost 1.48 prevents compilation");  // see https://svn.boost.org/trac/boost/ticket/6153
+BOOST_STATIC_ASSERT_MSG(offsetof(sockaddr_in,sin_port) == offsetof(sockaddr_in6,sin6_port), "ipv4 and ipv6 port number alignment broken");
+BOOST_STATIC_ASSERT_MSG(sizeof(ip_address_t) == sizeof(sockaddr_in6), "structure size broken");
 
 std::ostream &operator <<(std::ostream &os, const seq_nr_t &s)
 {
@@ -83,7 +83,7 @@ uint64_t tcp_stream_t::timeout() const
 {
 	bool use_short = d_have_accepted_end;
 	uint64_t r = d_highest_ts.tv_sec;
-	tcp_stream_t *our_partner = nullptr;
+	tcp_stream_t *our_partner = NULL;
 	if (have_partner())
 	{
 		our_partner = partner();
@@ -438,7 +438,7 @@ void tcp_reassembler_t::process(packet_t *packet)
 	assert(tcplay && tcplay->type() == layer_tcp);
 
 	stream_set_t::iterator it = find_or_create_stream(packet, tcplay);
-	tcp_stream_t *partner = (it->have_partner() ? it->partner() : nullptr);
+	tcp_stream_t *partner = (it->have_partner() ? it->partner() : NULL);
 
 	// returns false if packet probably does not belong to stream (quick port reuse)
 	bool accepted_packet = it->add(packet, tcplay);

@@ -41,7 +41,7 @@ void packet_t::init(
 	const bpf_u_int32 caplen = hdr->caplen;
 	d_pcap = data;
 	d_pcap_size = caplen;
-	d_userdata = nullptr;
+	d_userdata = NULL;
 #ifdef DEBUG
 	d_is_initialised = 1;
 #endif

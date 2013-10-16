@@ -42,7 +42,7 @@ FORCE_INLINE void common_stream_t<CRTP>::set_src_dst4(
 	dst.v4.sin_addr.s_addr = to;
 	dst.v4.sin_port = toport;
 
-	d_partner = nullptr; // so ->release can check the partner
+	d_partner = NULL; // so ->release can check the partner
 }
 
 template<typename CRTP>
@@ -70,15 +70,15 @@ FORCE_INLINE void common_stream_t<CRTP>::set_src_dst6(
 	dst.v6.sin6_addr = to;
 	dst.v6.sin6_port = toport;
 
-	d_partner = nullptr; // so ->release can check the partner
+	d_partner = NULL; // so ->release can check the partner
 }
 
 template<typename CRTP>
 FORCE_INLINE void common_stream_t<CRTP>::init(packet_listener_t *listener)
 {
 	d_listener = listener;
-	d_userdata = nullptr;
-	d_partner = nullptr;
+	d_userdata = NULL;
+	d_partner = NULL;
 }
 
 template<typename CRTP>

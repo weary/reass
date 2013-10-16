@@ -36,7 +36,7 @@ protected:
 	enum { max_timeout = MAX_TIMEOUT };
 	enum { granularity = GRANULARITY };
 	enum { slots = max_timeout / granularity };
-	static_assert(slots * granularity == max_timeout, "MAX_TIMEOUT must be a multiple of GRANULARITY");
+	BOOST_STATIC_ASSERT_MSG(slots * granularity == max_timeout, "MAX_TIMEOUT must be a multiple of GRANULARITY");
 
 	uint64_t d_now;
 	uint64_t d_now_in_slots; // points to the slot that will timeout when the time increases one granularity
