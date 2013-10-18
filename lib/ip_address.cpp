@@ -4,9 +4,9 @@
 
 
 #include "reass/ip_address.h"
+#include "reass/helpers/misc.h"
 #include <arpa/inet.h>
 #include <boost/functional/hash/hash.hpp>
-#include <boost/static_assert.hpp>
 #include <netinet/in.h>
 
 BOOST_STATIC_ASSERT_MSG(sizeof(in6_addr) == 128/8, "ipv6 addresses must be 128 bits");

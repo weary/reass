@@ -6,7 +6,11 @@
 #include <stdint.h>
 #include <string>
 #include <boost/lexical_cast.hpp>
+#include <boost/static_assert.hpp>
 
+#ifndef BOOST_STATIC_ASSERT_MSG
+#  define BOOST_STATIC_ASSERT_MSG(a, m) BOOST_STATIC_ASSERT(a)
+#endif
 
 
 namespace {
