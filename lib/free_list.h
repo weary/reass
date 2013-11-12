@@ -28,11 +28,10 @@ struct free_list_member_t : public boost::noncopyable
 #ifdef NO_REUSE
 		assert(d_free_head != this);
 #endif
+		// note, when a member is deleted from halfway through the freelist, the
+		// list is broken
 		if (d_free_head == this)
-		{
 			d_free_head = d_free_next;
-			delete d_free_head;
-		}
 	}
 
 	void release()
@@ -69,23 +68,22 @@ struct free_list_container_t : public boost::noncopyable
 	free_list_container_t(unsigned pre_claim = 0) :
 		d_free_head(NULL)
 #if !defined(NO_REUSE) and defined(DEBUG)
-		, d_count(0)
+		, d_count(pre_claim)
 #endif
 	{
+#if !defined(NO_REUSE)
 		for (unsigned n=0; n<pre_claim; ++n)
 		{
 			T *r = new T(d_free_head);
 			r->release();
 		}
+#endif
 	}
 
 	~free_list_container_t()
 	{
-		if (d_free_head)
-		{
-			delete d_free_head; // will recursively delete
-			d_free_head = NULL;
-		}
+		while(d_free_head)
+			delete d_free_head;
 	}
 
 
