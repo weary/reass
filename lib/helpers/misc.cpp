@@ -125,7 +125,7 @@ std::string make_hexdump(const char *buf_, int size)
 	for (int n=0; n<size; ++n)
 	{
 		if (n) result += ' ';
-		snprintf(buf, 3, "%02x", (int)buf_[n]);
+		snprintf(buf, 3, "%02x", ((unsigned char *)buf_)[n]);
 		result.append(buf, 2);
 	}
 	return result;
