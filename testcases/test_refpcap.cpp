@@ -166,6 +166,18 @@ void get_ref_ipv6(resultmap_t &reference)
 	reference["[2002::1]:9999 -> [2002::2]:37095"] = v("03381cd2 f3bd3be3 98bf93e5 11621e6c e0e8012f", 'r'); // r3
 }
 
+// testclass with some extra access functions
+struct pcap_reader_open_t : public pcap_reader_t
+{
+	pcap_reader_open_t(packet_listener_t *listener = NULL,
+			bool enable_tcp = true, bool enable_udp = true) :
+		pcap_reader_t(listener, enable_tcp, enable_udp)
+	{}
+
+	tcp_reassembler_t *tcp_reassembler() const { return d_tcp_reassembler; }
+	udp_reassembler_t *udp_reassembler() const { return d_udp_reassembler; }
+};
+
 BOOST_AUTO_TEST_CASE(ipv4)
 {
 	resultmap_t reference;
@@ -189,7 +201,7 @@ BOOST_AUTO_TEST_CASE(ipv4_nosynfin)
 	//reference["192.168.9.2:2001 -> 192.168.9.3:60254"] = "2a80023e 426fc810 72f224a2 d4b6e9d3 d8de8452"; // r1
 
 	hashing_listener_t listener;
-	pcap_reader_t reader(&listener);
+	pcap_reader_open_t reader(&listener);
 	reader.read_file("ref.pcap", "len > 100 or tcp[tcpflags] & (tcp-syn | tcp-fin) == 0"); // no syn/fin packets unless we have payload
 	tcp_reassembler_t *tcp_reass = reader.tcp_reassembler();
 

@@ -52,9 +52,7 @@ std::vector<packet_t *> read_packets(const std::vector<std::string> &pcaps, int 
 {
 	std::vector<packet_t *> out;
 	store_packets_listener_t listener(out, linktype, snaplen);
-	pcap_reader_t reader(&listener);
-	reader.enable_tcp_reassembly(false);
-	reader.enable_udp_reassembly(false);
+	pcap_reader_t reader(&listener, false, false);
 	BOOST_FOREACH(const std::string &file, pcaps)
 		reader.read_file(file);
 	return out;

@@ -6,6 +6,7 @@ SET(SOURCES
 		pcap_reader.cpp
 		tcp_reassembler.cpp
 		udp_reassembler.cpp
+		packet_entrypoint.cpp
 		helpers/misc.cpp)
 SET(HEADERS
 		common_reassembler.h
