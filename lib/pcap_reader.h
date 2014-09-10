@@ -26,7 +26,8 @@ struct pcap_reader_t : private free_list_container_t<packet_t>
 	void open_file(const std::string &fname, const std::string &bpf = std::string());
 	void close_file();
 
-	void open_live_capture(const std::string &device, bool promiscuous, const std::string &bpf = std::string());
+	void open_live_capture(const std::string &device, bool promiscuous, const std::string &bpf = std::string(),
+			int snaplen=2048, int buffersize=0 /*platform default*/);
 	void close_live_capture();
 	void read_packets(); // read one bufferful of packets
 

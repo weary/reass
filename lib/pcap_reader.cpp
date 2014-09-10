@@ -88,18 +88,33 @@ void pcap_reader_t::close_file()
 	d_pcap = NULL;
 }
 
-void pcap_reader_t::open_live_capture(const std::string &device, bool promiscuous, const std::string &bpf)
+void pcap_reader_t::open_live_capture(const std::string &device, bool promiscuous, const std::string &bpf, int snaplen, int buffersize)
 {
 	char errbuf[PCAP_ERRBUF_SIZE];
-	d_pcap = pcap_open_live(device.c_str(), 65536, promiscuous, 1000, errbuf);
+	d_pcap = pcap_create(device.c_str(), errbuf);
 	if (d_pcap == NULL)
-		throw format_exception("Could not capture '%s', %s", device.c_str(), errbuf);
+		throw format_exception("Could not capture for device %s: %s", device.c_str(), errbuf);
+
+	if (pcap_set_snaplen(d_pcap, snaplen) != 0)
+		throw format_exception("Could not set snaplen %d for device %s", snaplen, device.c_str());
+
+	if (pcap_set_buffer_size(d_pcap, buffersize) != 0)
+		throw format_exception("Could not set buffersize %d for device %s", buffersize, device.c_str());
+
+	if (pcap_set_promisc(d_pcap, promiscuous) != 0)
+		throw format_exception("Could not set promisc mode for device %s", promiscuous, device.c_str());
+
+	if (pcap_set_timeout(d_pcap, 1000) != 0)
+		throw format_exception("Could not set timeout for device %s", device.c_str());
+
+	if (pcap_activate(d_pcap) != 0)
+		throw format_exception("Could not activate capture on device %s", device.c_str());
 
 	set_bpf(bpf);
 
 	d_linktype = pcap_datalink(d_pcap);
 
-	d_listener->begin_capture(device, linktype(), snaplen());
+	d_listener->begin_capture(device, this->linktype(), this->snaplen());
 }
 
 void pcap_reader_t::set_bpf(const std::string &bpf)
