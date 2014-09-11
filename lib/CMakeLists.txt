@@ -18,6 +18,7 @@ SET(HEADERS
 		likely.h
 		packet.h
 		packet_listener.h
+		packet_entrypoint.h
 		pcap_reader.h
 		pcap_writer.h
 		tcp_reassembler.h
