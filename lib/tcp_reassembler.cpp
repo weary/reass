@@ -256,7 +256,7 @@ void tcp_stream_t::find_direction(packet_t *packet, const layer_t *tcplay)
 	{
 		if (hdr.th_flags & TH_SYN)
 			d_direction = (hdr.th_flags & TH_ACK ? direction_responder : direction_initiator);
-		else
+		else // assume the server is the one with the lower port nubmer
 			d_direction = (htons(hdr.th_sport) > htons(hdr.th_dport) ? direction_initiator : direction_responder);
 
 		if (have_partner())
