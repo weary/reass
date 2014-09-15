@@ -67,9 +67,8 @@ std::size_t hash_value(const ip_address_t &s)
 	if (s.v4.sin_family == AF_INET)
 		boost::hash_combine(r, s.v4.sin_addr.s_addr);
 	else
-		for (int n=0; n<4; ++n)
-			boost::hash_combine(r, s.v6.sin6_addr.__in6_u.__u6_addr32[n]);
-
+		boost::hash_range(r, s.v6.sin6_addr.s6_addr,
+				  s.v6.sin6_addr.s6_addr + 16);
 	return r;
 }
 
