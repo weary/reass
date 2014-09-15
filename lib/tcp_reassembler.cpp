@@ -286,7 +286,6 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 		listener()->accept_error(packet, "tcp-payload in syn-packet");
 		return;
 	}
-	assert(!psize || !(hdr.th_flags & TH_ SYN)); // assume syn-packets will not have content. will break some day
 	seq_nr_t seq = htonl(hdr.th_seq);
 	int32_t packetloss = seq.d_val - d_next_seq.d_val;
 	int32_t overlap = -packetloss;
