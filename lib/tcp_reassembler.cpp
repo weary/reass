@@ -134,10 +134,10 @@ void tcp_stream_t::set_src_dst_from_packet(const packet_t *packet, bool swap /* 
 	const tcphdr &hdr1 = reinterpret_cast<const tcphdr &>(*tcplay->data());
 	if (iplay->type() == layer_ipv4)
 	{
-		const iphdr &hdr2 = reinterpret_cast<const iphdr &>(*iplay->data());
+		const ip &hdr2 = reinterpret_cast<const ip &>(*iplay->data());
 		common_t::set_src_dst4(
-				hdr2.saddr, hdr1.source,
-				hdr2.daddr, hdr1.dest,
+				hdr2.ip_src.s_addr, hdr1.th_sport,
+				hdr2.ip_dst.s_addr, hdr1.th_dport,
 				swap);
 	}
 	else
@@ -145,8 +145,8 @@ void tcp_stream_t::set_src_dst_from_packet(const packet_t *packet, bool swap /* 
 		const ip6_hdr &hdr2 = reinterpret_cast<const ip6_hdr &>(*iplay->data());
 		assert(iplay->type() == layer_ipv6);
 		common_t::set_src_dst6(
-				hdr2.ip6_src, hdr1.source,
-				hdr2.ip6_dst, hdr1.dest,
+				hdr2.ip6_src, hdr1.th_sport,
+				hdr2.ip6_dst, hdr1.th_dport,
 				swap);
 	}
 }
@@ -171,8 +171,8 @@ void tcp_stream_t::found_partner(tcp_stream_t *other)
 
 void tcp_stream_t::find_relyable_startseq(const tcphdr &hdr)
 {
-	seq_nr_t seq(htonl(hdr.seq));
-	if (hdr.syn) // syn-packets signify a first packet
+	seq_nr_t seq(htonl(hdr.th_seq));
+	if (hdr.th_flags & TH_SYN) // syn-packets signify a first packet
 	{
 		d_trust_seq = true;
 		d_next_seq = seq;
@@ -200,7 +200,7 @@ bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 
 	const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
 
-	if (unlikely(!is_reasonable_seq(htonl(hdr.seq))))
+	if (unlikely(!is_reasonable_seq(htonl(hdr.th_seq))))
 		return false; // quick port re-use, packet not part of this stream
 
 	if (!d_trust_seq) // check if we already have a starting packet
@@ -208,12 +208,12 @@ bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 
 	if (!is_partner_set())
 	{
-		seq_nr_t ack(htonl(hdr.ack_seq));
+		seq_nr_t ack(htonl(hdr.th_ack));
 		if (d_smallest_ack == 0 || ack < d_smallest_ack)
 			d_smallest_ack = ack;
 	}
 
-	seq_nr_t seq(htonl(hdr.seq));
+	seq_nr_t seq(htonl(hdr.th_seq));
 	// if we know where the packet should go -> do it
 	if (d_trust_seq && is_partner_set()) // partner is also set if we gave up looking
 	{
@@ -254,10 +254,10 @@ void tcp_stream_t::find_direction(packet_t *packet, const layer_t *tcplay)
 		d_direction = (partner()->d_direction == direction_initiator ? direction_responder : direction_initiator);
 	else
 	{
-		if (hdr.syn)
-			d_direction = (hdr.ack ? direction_responder : direction_initiator);
+		if (hdr.th_flags & TH_SYN)
+			d_direction = (hdr.th_flags & TH_ACK ? direction_responder : direction_initiator);
 		else
-			d_direction = (htons(hdr.source) > htons(hdr.dest) ? direction_initiator : direction_responder);
+			d_direction = (htons(hdr.th_sport) > htons(hdr.th_dport) ? direction_initiator : direction_responder);
 
 		if (have_partner())
 			partner()->d_direction = (d_direction == direction_initiator ? direction_responder : direction_initiator);
@@ -274,20 +274,20 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 	if (d_direction == direction_unknown)
 		find_direction(packet, tcplay);
 
-	if (hdr.fin || hdr.rst)
+	if (hdr.th_flags & (TH_FIN|TH_RST))
 		d_have_accepted_end = true;
 
 	size_t psize = 0;
 	if (next) psize = next->size();
 	assert(!next || (packet->next(next) == NULL && next->type() == layer_data)); // assume we are the last
-	if (psize && hdr.syn)
+	if (psize && (hdr.th_flags & TH_SYN))
 	{
 		// if this ever happens in a legal case, please send me the pcap
 		listener()->accept_error(packet, "tcp-payload in syn-packet");
 		return;
 	}
-	assert(!psize || !hdr.syn); // assume syn-packets will not have content. will break some day
-	seq_nr_t seq = htonl(hdr.seq);
+	assert(!psize || !(hdr.th_flags & TH_ SYN)); // assume syn-packets will not have content. will break some day
+	seq_nr_t seq = htonl(hdr.th_seq);
 	int32_t packetloss = seq.d_val - d_next_seq.d_val;
 	int32_t overlap = -packetloss;
 	if (psize)
@@ -303,11 +303,11 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 		seq.d_val += psize;
 	}
 
-	if (hdr.syn) ++seq.d_val;
-	if (hdr.fin) ++seq.d_val; // this is undocumented, but needed??
+	if (hdr.th_flags & TH_SYN) ++seq.d_val;
+	if (hdr.th_flags & TH_FIN) ++seq.d_val; // this is undocumented, but needed??
 
 	// we don't have packetloss if we have a reset-packet, or with packet-overlap
-	if (packetloss < 0 || hdr.rst) packetloss = 0;
+	if (packetloss < 0 || (hdr.th_flags & TH_RST)) packetloss = 0;
 
 	if (seq > d_next_seq)
 		d_next_seq = seq;

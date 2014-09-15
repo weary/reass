@@ -223,30 +223,30 @@ void packet_t::parse_ipv4(const u_char *begin, const u_char *end)
 	if (begin == end)
 		throw format_exception("empty ipv4 header");
 
-	const iphdr &hdr = reinterpret_cast<const iphdr &>(*begin);
-	if (hdr.version != 4)
-		throw format_exception("expected ip version 4, got %d", hdr.version);
+	const ip &hdr = reinterpret_cast<const ip &>(*begin);
+	if (hdr.ip_v != 4)
+		throw format_exception("expected ip version 4, got %d", hdr.ip_v);
 
 	size_t size = end-begin;
-	if (size < sizeof(iphdr) || size < (size_t)hdr.ihl*4)
+	if (size < sizeof(ip) || size < (size_t)hdr.ip_hl*4)
 		throw format_exception("packet has %d bytes, but need %d for ip header",
-				size, std::max<size_t>(sizeof(iphdr), hdr.ihl*4));
-	size_t hdrsize = hdr.ihl*4;
-	int payload = htons(hdr.tot_len) - hdrsize;
+				size, std::max<size_t>(sizeof(ip), hdr.ip_hl*4));
+	size_t hdrsize = hdr.ip_hl*4;
+	int payload = htons(hdr.ip_len) - hdrsize;
 	if (payload <= 0)
 		throw format_exception("no content in ip-packet. expected next layer");
-	assert(sizeof(iphdr) <= hdrsize);
+	assert(sizeof(ip) <= hdrsize);
 	add_layer(layer_ipv4, begin, end);
 
 	const uint16_t fragment_offset_mask = (1<<13)-1;
-	uint16_t frag_off = 8*(htons(hdr.frag_off) & fragment_offset_mask);
-	bool more_fragments = (htons(hdr.frag_off) >> 13) & 1;
+	uint16_t frag_off = 8*(htons(hdr.ip_off) & fragment_offset_mask);
+	bool more_fragments = (htons(hdr.ip_off) >> 13) & 1;
 	if (more_fragments || frag_off)
 		throw format_exception("fragments not supported");
 
-	const u_char *next = begin + hdr.ihl*4;
+	const u_char *next = begin + hdr.ip_hl*4;
 	const u_char *nend = std::min<const u_char *>(end, next + payload);
-	parse_next_ip_protocol(hdr.protocol, next, nend, "ip");
+	parse_next_ip_protocol(hdr.ip_p, next, nend, "ip");
 }
 
 void packet_t::parse_ipv6(const u_char *begin, const u_char *end)
@@ -280,11 +280,11 @@ void packet_t::parse_tcp(const u_char *begin, const u_char *end)
 	if (size < sizeof(tcphdr))
 		throw format_exception("packet has %d bytes, but need %d for tcp header",
 				size, sizeof(tcphdr));
-	if (size < (size_t)hdr.doff*4)
+	if (size < (size_t)hdr.th_off*4)
 		throw format_exception("packet has %d bytes, but need %d for tcp header",
-				size, hdr.doff*4);
+				size, hdr.th_off*4);
 	add_layer(layer_tcp, begin, end);
-	const u_char *data = begin + hdr.doff*4;
+	const u_char *data = begin + hdr.th_off*4;
 	if (data < end)
 		add_layer(layer_data, data, end);
 };
@@ -296,7 +296,7 @@ void packet_t::parse_udp(const u_char *begin, const u_char *end)
 	if (size < sizeof(udphdr))
 		throw format_exception("packet has %d bytes, but need %d for udp header",
 				size, sizeof(udphdr));
-	int payload = htons(hdr.len) - sizeof(udphdr);
+	int payload = htons(hdr.uh_ulen) - sizeof(udphdr);
 	const u_char *next = begin + sizeof(udphdr);
 	add_layer(layer_udp, begin, end);
 	if (end-next < payload) payload = end-next;
@@ -324,11 +324,11 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 		case(layer_cooked): os << "cooked"; break;
 		case(layer_ipv4):
 			{
-				const iphdr &hdr = reinterpret_cast<const iphdr &>(*l.data());
+				const ip &hdr = reinterpret_cast<const ip &>(*l.data());
 				os << "ipv4[";
-				ipv4addr(os, &hdr.saddr);
+				ipv4addr(os, &hdr.ip_src);
 				os << "-";
-				ipv4addr(os, &hdr.daddr);
+				ipv4addr(os, &hdr.ip_dst);
 				os << "]";
 			}
 			break;
@@ -336,25 +336,24 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 		case(layer_tcp):
 			{
 				const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*l.data());
-				os << "tcp[" << htons(hdr.source) << "-" << htons(hdr.dest);
+				os << "tcp[" << htons(hdr.th_sport) << "-" << htons(hdr.th_dport);
 				if (1)
 				{
 					char buf[256];
-					sprintf(buf, " seq=%08x ack=%08x", htonl(hdr.seq), htonl(hdr.ack_seq));
+					sprintf(buf, " seq=%08x ack=%08x", htonl(hdr.th_seq), htonl(hdr.th_ack));
 					os << buf;
 				}
 				if (1)
 				{
-					if (hdr.urg || hdr.ack || hdr.psh ||
-							hdr.rst || hdr.syn || hdr.fin)
+					if (hdr.th_flags & 0x3F)
 						os << ' ';
 
-					if (hdr.urg) os << 'U';
-					if (hdr.ack) os << 'A';
-					if (hdr.psh) os << 'P';
-					if (hdr.rst) os << 'R';
-					if (hdr.syn) os << 'S';
-					if (hdr.fin) os << 'F';
+					if (hdr.th_flags & TH_URG) os << 'U';
+					if (hdr.th_flags & TH_ACK) os << 'A';
+					if (hdr.th_flags & TH_PUSH) os << 'P';
+					if (hdr.th_flags & TH_RST) os << 'R';
+					if (hdr.th_flags & TH_SYN) os << 'S';
+					if (hdr.th_flags & TH_FIN) os << 'F';
 				}
 				os << ']';
 			}
@@ -362,7 +361,7 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 		case(layer_udp):
 			{
 				const udphdr &hdr = reinterpret_cast<const udphdr &>(*l.data());
-				os << "udp[" << htons(hdr.source) << "-" << htons(hdr.dest) << ']';
+				os << "udp[" << htons(hdr.uh_sport) << "-" << htons(hdr.uh_dport) << ']';
 			}
 			break;
 		case(layer_pppoe): os << "pppoe"; break;
@@ -390,4 +389,3 @@ void packet_t::print(std::ostream &os) const
 		os << d_layers[n] << ' ';
 	os << '}';
 }
-

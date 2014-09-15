@@ -55,10 +55,10 @@ void udp_stream_t::set_src_dst_from_packet(const packet_t *packet, bool swap /* 
 	const udphdr &hdr1 = reinterpret_cast<const udphdr &>(*udplay->data());
 	if (iplay->type() == layer_ipv4)
 	{
-		const iphdr &hdr2 = reinterpret_cast<const iphdr &>(*iplay->data());
+		const ip &hdr2 = reinterpret_cast<const ip &>(*iplay->data());
 		common_t::set_src_dst4(
-				hdr2.saddr, hdr1.source,
-				hdr2.daddr, hdr1.dest,
+				hdr2.ip_src.s_addr, hdr1.uh_sport,
+				hdr2.ip_dst.s_addr, hdr1.uh_dport,
 				swap);
 	}
 	else
@@ -66,8 +66,8 @@ void udp_stream_t::set_src_dst_from_packet(const packet_t *packet, bool swap /* 
 		const ip6_hdr &hdr2 = reinterpret_cast<const ip6_hdr &>(*iplay->data());
 		assert(iplay->type() == layer_ipv6);
 		common_t::set_src_dst6(
-				hdr2.ip6_src, hdr1.source,
-				hdr2.ip6_dst, hdr1.dest,
+				hdr2.ip6_src, hdr1.uh_sport,
+				hdr2.ip6_dst, hdr1.uh_dport,
 				swap);
 	}
 }
