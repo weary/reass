@@ -108,7 +108,7 @@ typedef format_exception_t format_exception;
 std::string stringerror(int e);
 void unix_die(const std::string &during);
 
-int open_file(const std::string &name_, int flags);
+int open_file(const std::string &name_, int flags, int mode=0644);
 void close_file(int h_);
 
 void writen(int handle, const void *buf, size_t size);

@@ -81,9 +81,9 @@ void unix_die(const std::string &during)
 	throw format_exception_t("exception during %s, %s", during.c_str(), stringerror(e).c_str());
 }
 
-int open_file(const std::string &name_, int flags)
+int open_file(const std::string &name_, int flags, int mode)
 {
-	int h = ::open(name_.c_str(), flags);
+	int h = ::open(name_.c_str(), flags, mode);
 	if (h<0)
 		unix_die("opening file '"+name_+"'");
 	return h;
