@@ -79,11 +79,11 @@ void pcap_reader_t::open_live_capture(const std::string &device, bool promiscuou
 	if (pcap_set_snaplen(d_pcap, snaplen) != 0)
 		throw format_exception("Could not set snaplen %d for device %s", snaplen, device.c_str());
 
-	if (pcap_set_buffer_size(d_pcap, buffersize) != 0)
+	if (buffersize && pcap_set_buffer_size(d_pcap, buffersize) != 0)
 		throw format_exception("Could not set buffersize %d for device %s", buffersize, device.c_str());
 
 	if (pcap_set_promisc(d_pcap, promiscuous) != 0)
-		throw format_exception("Could not set promisc mode for device %s", promiscuous, device.c_str());
+		throw format_exception("Could not set promisc mode for device %s", device.c_str());
 
 	if (pcap_set_timeout(d_pcap, 1000) != 0)
 		throw format_exception("Could not set timeout for device %s", device.c_str());

@@ -12,6 +12,7 @@
 #  define BOOST_STATIC_ASSERT_MSG(a, m) BOOST_STATIC_ASSERT(a)
 #endif
 
+#define PRINTFCHECK(FMT,ARGS) __attribute__ ((format(printf, FMT, ARGS)));
 
 namespace {
 template<typename T, typename S>
@@ -88,13 +89,13 @@ protected:
 };
 
 
-std::string sformat(const char *fmt, ...);
+std::string sformat(const char *fmt, ...) PRINTFCHECK(1,2);
 
 std::string only_printable(const std::string &src_);
 
 struct format_exception_t : public std::exception
 {
-	format_exception_t(const char *fmt, ...) throw();
+	format_exception_t(const char *fmt, ...) throw() PRINTFCHECK(2,3);
 	virtual ~format_exception_t() throw() {}
 
 	virtual const char* what() const throw() { return d_what.c_str(); }
