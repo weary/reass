@@ -8,7 +8,6 @@
 #include "reass/helpers/misc.h"
 #include <net/ethernet.h>
 #define __FAVOR_BSD  // ugly, but needed for bsd/linux compatibility (can't be specified in makefile)
-#include <net/if_ppp.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
@@ -16,6 +15,10 @@
 #include <netinet/in.h>
 #include <pcap/sll.h>
 #include <inttypes.h>
+
+// net/if_ppp.h not available cross-platform, so we'll just define this here
+#define PPP_IP 0x21
+
 
 packet_t::packet_t(packet_t *&free_head) :
 	free_list_member_t<packet_t>(free_head),
