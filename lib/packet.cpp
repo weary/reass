@@ -18,6 +18,8 @@
 
 // net/if_ppp.h not available cross-platform, so we'll just define this here
 #define PPP_IP 0x21
+// nor is ETH_P_PPP_SES (on linux available through net/ethernet.h) found everywhere
+#define ETH_P_PPP_SES 0x8864
 
 
 packet_t::packet_t(packet_t *&free_head) :
