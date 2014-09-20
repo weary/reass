@@ -7,6 +7,7 @@
 #include "reass/packet.h"
 #include "reass/helpers/misc.h"
 #include <net/ethernet.h>
+#define __FAVOR_BSD  // ugly, but needed for bsd/linux compatibility (can't be specified in makefile)
 #include <net/if_ppp.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
@@ -345,7 +346,8 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 				}
 				if (1)
 				{
-					if (hdr.th_flags & 0x3F)
+					if (hdr.th_flags & (
+								TH_URG | TH_ACK | TH_PUSH | TH_RST | TH_SYN | TH_FIN))
 						os << ' ';
 
 					if (hdr.th_flags & TH_URG) os << 'U';

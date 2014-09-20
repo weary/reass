@@ -8,6 +8,7 @@
 #include "reass/helpers/misc.h"
 #include <boost/version.hpp>
 #include <boost/foreach.hpp>
+#define __FAVOR_BSD  // ugly, but needed for bsd/linux compatibility (can't be specified in makefile)
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/udp.h>

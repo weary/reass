@@ -9,6 +9,7 @@
 #include "reass/config.h"
 #include "reass/likely.h"
 #include <boost/version.hpp>
+#define __FAVOR_BSD  // ugly, but needed for bsd/linux compatibility (can't be specified in makefile)
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
