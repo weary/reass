@@ -151,8 +151,8 @@ void packet_t::parse_next_ethertype(uint16_t ethertype,
 void packet_t::parse_cooked(const u_char *begin, const u_char *end)
 {
 	if ((size_t)(end-begin) < sizeof(sll_header))
-		throw format_exception("packet has %d bytes, but need %d for cooked header",
-				end-begin, sizeof(sll_header));
+		throw format_exception("packet has %zu bytes, but need %zu for cooked header",
+				(size_t)(end-begin), sizeof(sll_header));
 
 	const sll_header &hdr = reinterpret_cast<const sll_header &>(*begin);
 
@@ -165,8 +165,8 @@ void packet_t::parse_cooked(const u_char *begin, const u_char *end)
 void packet_t::parse_ethernet(const u_char *begin, const u_char *end)
 {
 	if ((size_t)(end-begin) < sizeof(ether_header))
-		throw format_exception("packet has %d bytes, but need %d for ethernet header",
-				end-begin, sizeof(ether_header));
+		throw format_exception("packet has %zu bytes, but need %zu for ethernet header",
+				(size_t)(end-begin), sizeof(ether_header));
 
 	const ether_header &hdr = reinterpret_cast<const ether_header &>(*begin);
 
@@ -180,8 +180,8 @@ void packet_t::parse_vlan(const u_char *begin, const u_char *end)
 {
 	const size_t vlan_size = 4;
 	if ((size_t)(end-begin) < vlan_size)
-		throw format_exception("packet has %d bytes, but need %d for vlan header",
-				end-begin, vlan_size);
+		throw format_exception("packet has %zu bytes, but need %zu for vlan header",
+				(size_t)(end-begin), vlan_size);
 
 	const uint16_t *hdr = reinterpret_cast<const uint16_t *>(begin);
 
@@ -193,8 +193,8 @@ void packet_t::parse_pppoe(const u_char *begin, const u_char *end)
 {
 	const size_t pppoe_size = 8; //PPPOE 6, PPP 2
 	if ((size_t)(end-begin) < pppoe_size)
-		throw format_exception("packet has %d bytes, but need %d for pppoe header",
-				end-begin, pppoe_size);
+		throw format_exception("packet has %zu bytes, but need %zu for pppoe header",
+				(size_t)(end-begin), pppoe_size);
 
 	add_layer(layer_pppoe, begin, end);
 	const uint16_t *hdr = reinterpret_cast<const uint16_t *>(begin + 6);
@@ -233,7 +233,7 @@ void packet_t::parse_ipv4(const u_char *begin, const u_char *end)
 
 	size_t size = end-begin;
 	if (size < sizeof(ip) || size < (size_t)hdr.ip_hl*4)
-		throw format_exception("packet has %d bytes, but need %d for ip header",
+		throw format_exception("packet has %zu bytes, but need %zu for ip header",
 				size, std::max<size_t>(sizeof(ip), hdr.ip_hl*4));
 	size_t hdrsize = hdr.ip_hl*4;
 	int payload = htons(hdr.ip_len) - hdrsize;
@@ -265,14 +265,15 @@ void packet_t::parse_ipv6(const u_char *begin, const u_char *end)
 
 	size_t size = end-begin;
 	if (size < sizeof(ip6_hdr))
-		throw format_exception("packet has %d bytes, but need %d for ip header",
+		throw format_exception("packet has %zu bytes, but need %zu for ip header",
 				size, sizeof(ip6_hdr));
 	add_layer(layer_ipv6, begin, end);
 
 	uint16_t payloadlen = ntohs(hdr.ip6_ctlun.ip6_un1.ip6_un1_plen);
 	const u_char *next = begin + sizeof(ip6_hdr);
 	if (next + payloadlen > end)
-		throw format_exception("missing bytes from ipv6 field, have %d, need %d", end - next, payloadlen);
+		throw format_exception("missing bytes from ipv6 field, have %zu, need %d",
+				(size_t)(end - next), payloadlen);
 
 	parse_next_ip_protocol(hdr.ip6_nxt, next, next + payloadlen, "ipv6");
 }
@@ -282,10 +283,10 @@ void packet_t::parse_tcp(const u_char *begin, const u_char *end)
 	const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*begin);
 	size_t size = end-begin;
 	if (size < sizeof(tcphdr))
-		throw format_exception("packet has %d bytes, but need %d for tcp header",
+		throw format_exception("packet has %zu bytes, but need %zu for tcp header",
 				size, sizeof(tcphdr));
 	if (size < (size_t)hdr.th_off*4)
-		throw format_exception("packet has %d bytes, but need %d for tcp header",
+		throw format_exception("packet has %zu bytes, but need %d for tcp header",
 				size, hdr.th_off*4);
 	add_layer(layer_tcp, begin, end);
 	const u_char *data = begin + hdr.th_off*4;
@@ -298,7 +299,7 @@ void packet_t::parse_udp(const u_char *begin, const u_char *end)
 	const udphdr &hdr = reinterpret_cast<const udphdr &>(*begin);
 	size_t size = end-begin;
 	if (size < sizeof(udphdr))
-		throw format_exception("packet has %d bytes, but need %d for udp header",
+		throw format_exception("packet has %zu bytes, but need %zu for udp header",
 				size, sizeof(udphdr));
 	int payload = htons(hdr.uh_ulen) - sizeof(udphdr);
 	const u_char *next = begin + sizeof(udphdr);
