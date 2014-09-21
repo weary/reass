@@ -8,6 +8,7 @@
 #include <iostream>
 #include <openssl/sha.h>
 #include <boost/foreach.hpp>
+#include "basename.h"
 
 class packet_listener_t;
 
@@ -74,9 +75,9 @@ public:
 
 void printhelp(const char *argv0)
 {
-	printf("\n%s will monitor connections and print every x seconds a statusline telling\n", basename(argv0));
+	printf("\n%s will monitor connections and print every x seconds a statusline telling\n", basename_r(argv0));
 	printf("the number of new tcp connections and the number of missing bytes from those streams\n\n");
-	printf("%s [--live <device>] [--bpf <bpf>] [--every <seconds>] [pcaps]\n", basename(argv0));
+	printf("%s [--live <device>] [--bpf <bpf>] [--every <seconds>] [pcaps]\n", basename_r(argv0));
 }
 
 int main(int argc, char *argv[])
@@ -129,4 +130,3 @@ catch(const std::exception &e)
 	fprintf(stderr, "EXCEPTION: %s\n", e.what());
 	return -1;
 }
-

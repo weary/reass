@@ -6,6 +6,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <stdexcept>
 #include <sys/mman.h>
+#include "basename.h"
 
 static void writeline(int handle, const std::string &line)
 {
@@ -141,7 +142,8 @@ void write_pcap(
 
 void printhelp(const char *argv0)
 {
-	const char *app = basename(argv0);
+
+	const char *app = basename_r(argv0);
 
 	printf("Usage:\n");
 	printf("  %s --interactive -o <output pcap> <input pcaps>\n", app);
@@ -233,7 +235,9 @@ int main(int argc, char *argv[])
 			writeline(handle, "# new pcap will be generated after you save-and-exit this editor\n");
 		else
 		{
-			cmdline = std::string(basename(argv[0])) + " " + boost::algorithm::join(positional, " ") + " -p " + orderfile + " -o <output>.pcap";
+			char *app = strdup(argv[0]);
+			cmdline = std::string(basename_r(app)) + " " + boost::algorithm::join(positional, " ") + " -p " + orderfile + " -o <output>.pcap";
+			free(app);
 			writeline(handle, "# to generate a re-ordered pcap: " + cmdline + "\n");
 		}
 		write_packetlines(handle, packets);
@@ -275,4 +279,3 @@ catch(const std::exception &e)
 	fprintf(stderr, "EXCEPTION: %s\n", e.what());
 	return -1;
 }
-

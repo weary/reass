@@ -8,6 +8,7 @@
 #include <iostream>
 #include <openssl/sha.h>
 #include <boost/foreach.hpp>
+#include "basename.h"
 
 class packet_listener_t;
 
@@ -88,7 +89,7 @@ public:
 void printhelp(const char *argv0)
 {
 	printf("\nprint all data in captured streams to stdout\n\n");
-	printf("%s [--live <device>] [--bpf <bpf>] [pcaps]\n", basename(argv0));
+	printf("%s [--live <device>] [--bpf <bpf>] [pcaps]\n", basename_r(argv0));
 }
 
 int main(int argc, char *argv[])
@@ -137,4 +138,3 @@ catch(const std::exception &e)
 	fprintf(stderr, "EXCEPTION: %s\n", e.what());
 	return -1;
 }
-

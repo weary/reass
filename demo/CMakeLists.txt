@@ -1,13 +1,13 @@
 cmake_minimum_required (VERSION 2.8)
 
-add_executable(reass_speedtest reass_speedtest.cpp)
+add_executable(reass_speedtest reass_speedtest.cpp basename.cpp)
 target_link_libraries(reass_speedtest libreass)
 
-add_executable(pcap_manual_reorder reorder_main.cpp)
+add_executable(pcap_manual_reorder reorder_main.cpp basename.cpp)
 target_link_libraries(pcap_manual_reorder libreass)
 
-add_executable(reass_printall reass_printall.cpp)
+add_executable(reass_printall reass_printall.cpp basename.cpp)
 target_link_libraries(reass_printall libreass)
 
-add_executable(reass_monitor_packetloss reass_monitor_packetloss.cpp)
+add_executable(reass_monitor_packetloss reass_monitor_packetloss.cpp basename.cpp)
 target_link_libraries(reass_monitor_packetloss libreass)
