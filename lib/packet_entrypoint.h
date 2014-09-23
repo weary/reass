@@ -17,9 +17,8 @@ struct packet_entrypoint_t : private free_list_container_t<packet_t>
 			bool enable_tcp = true, bool enable_udp = true);
 	~packet_entrypoint_t();
 
-	// FIXME: 2 uit d_linktype2 halen
-	void set_linktype(int ltype) { d_linktype2 = ltype; }
-	int linktype() const { return d_linktype2; }
+	void set_linktype(int ltype) { d_linktype = ltype; }
+	int linktype() const { return d_linktype; }
 
 	// flush buffers in reassemblers
 	void flush();
@@ -31,7 +30,7 @@ struct packet_entrypoint_t : private free_list_container_t<packet_t>
 	void reset_packetcounter(uint64_t newval = 0) { d_packetnr = newval; }
 
 protected:
-	int d_linktype2;
+	int d_linktype;
 	packet_listener_t *d_listener;
 	uint64_t d_packetnr;
 

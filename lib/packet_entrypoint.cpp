@@ -15,6 +15,7 @@ packet_entrypoint_t::packet_entrypoint_t(
 		packet_listener_t *listener,
 		bool enable_tcp, bool enable_udp) :
 	free_list_container_t<packet_t>(0),
+	d_linktype(-1),
 	d_listener(listener), d_packetnr(0),
 	d_tcp_reassembler(NULL), d_udp_reassembler(NULL)
 {
@@ -51,6 +52,9 @@ void packet_entrypoint_t::flush()
 // called whenever libpcap has a packet
 void packet_entrypoint_t::handle_packet(const struct pcap_pkthdr *hdr, const u_char *data)
 {
+	if (d_linktype == -1)
+		throw std::runtime_error("Linktype not set. Call set_linktype before handle_packet");
+
 	++d_packetnr;
 
 	packet_t *packet = claim(); // get space from free list (or new if free list was empty)
@@ -58,7 +62,7 @@ void packet_entrypoint_t::handle_packet(const struct pcap_pkthdr *hdr, const u_c
 	bool must_copy = true; // packet is using libpcap memory
 	try
 	{
-		packet->init(d_linktype2, hdr, data, &must_copy); // parse layers
+		packet->init(d_linktype, hdr, data, &must_copy); // parse layers
 
 		if (d_tcp_reassembler)
 			d_tcp_reassembler->set_now(packet->ts().tv_sec);
