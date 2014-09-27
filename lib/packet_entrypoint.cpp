@@ -55,6 +55,7 @@ void packet_entrypoint_t::handle_packet(const struct pcap_pkthdr *hdr, const u_c
 	if (d_linktype == -1)
 		throw std::runtime_error("Linktype not set. Call set_linktype before handle_packet");
 
+	uint64_t packetnr = d_packetnr;
 	++d_packetnr;
 
 	packet_t *packet = claim(); // get space from free list (or new if free list was empty)
@@ -63,6 +64,7 @@ void packet_entrypoint_t::handle_packet(const struct pcap_pkthdr *hdr, const u_c
 	try
 	{
 		packet->init(d_linktype, hdr, data, &must_copy); // parse layers
+		d_listener->new_packet(packet, packetnr);
 
 		if (d_tcp_reassembler)
 			d_tcp_reassembler->set_now(packet->ts().tv_sec);

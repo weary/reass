@@ -1,9 +1,12 @@
+#define __STDC_FORMAT_MACROS // for PRIu64
+
 #include "reass/pcap_reader.h"
 #include "reass/pcap_writer.h"
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string/trim.hpp>
-#include "boost/scope_exit.hpp"
+#include <boost/scope_exit.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <inttypes.h>
 #include <stdexcept>
 #include <sys/mman.h>
 
@@ -22,14 +25,19 @@ static void writeline(int handle, const std::string &line)
 struct store_packets_listener_t : public packet_listener_t
 {
 	store_packets_listener_t(std::vector<packet_t *> &p, int &linktype, int &snaplen) :
-	 	d_p(p), d_linktype(linktype), d_snaplen(snaplen)
- 	{}
+		d_p(p), d_linktype(linktype), d_snaplen(snaplen)
+	{}
 	~store_packets_listener_t() {}
 
 	void begin_capture(const std::string &name, int linktype, int snaplen)
 	{
 		d_linktype = linktype;
 		d_snaplen = snaplen;
+	}
+
+	void new_packet(packet_t *packet, uint64_t packetnr)
+	{
+		packet->set_userdata((void *)packetnr);
 	}
 
 	void accept(packet_t *packet)
@@ -39,7 +47,7 @@ struct store_packets_listener_t : public packet_listener_t
 
 	void accept_error(packet_t *packet, const char *error)
 	{
-		d_p.push_back(packet);
+		accept(packet);
 	}
 
 protected:
@@ -62,11 +70,18 @@ void write_packetlines(int handle, const std::vector<packet_t *> packets)
 {
 	BOOST_FOREACH(const packet_t *p, packets)
 	{
-		writeline(handle, to_str(*p) + "\n");
+		uint64_t packetnr = (uint64_t)p->userdata();
+		++packetnr; // wireshark shows packetnr's starting at 1, be compatible
+		char nrbuf[16];
+		snprintf(nrbuf, 16, "%4"PRIu64, packetnr);
+		std::string line = to_str(*p);
+		line = std::string("[") + nrbuf + " " + line.substr(1) + "\n";
+
+		writeline(handle, line);
 	}
 }
 
-std::vector<uint64_t> parse_packetnrs(int handle)
+std::vector<uint64_t> parse_packetnrs(int handle, uint64_t highest_valid_packetnr)
 {
 	using boost::algorithm::trim;
 	using boost::algorithm::trim_copy;
@@ -111,6 +126,9 @@ std::vector<uint64_t> parse_packetnrs(int handle)
 		uint64_t pnr = 0;
 		for (size_t n=0; n<s.size() && s[n]>='0' && s[n]<='9'; ++n)
 			pnr = pnr * 10 + (s[n] - '0');
+		if (pnr == 0 || pnr > highest_valid_packetnr)
+			throw format_exception("could not parse line %ld, invalid packet number", line);
+		--pnr; // convert back from base-1 to base-0
 		out.push_back(pnr);
 	}
 
@@ -121,18 +139,17 @@ void write_pcap(
 		const std::string &outfile,
 		int linktype,
 		int snaplen,
-	 	const std::vector<packet_t *> &packets,
-	 	const std::vector<uint64_t> &pnrs)
+		const std::vector<packet_t *> &packets,
+		const std::vector<uint64_t> &pnrs)
 {
 	size_t n=0;
 	{
 		pcap_writer_t writer(outfile, linktype, snaplen);
 		BOOST_FOREACH(uint64_t p, pnrs)
 		{
-			// note, numbers in pnrs are 1-based
-			if (p > packets.size())
+			if (p >= packets.size())
 				throw format_exception("invalid packetnr %ld found", p);
-			writer.add(packets[p-1]);
+			writer.add(packets[p]);
 			++n;
 		}
 	}
@@ -261,7 +278,7 @@ int main(int argc, char *argv[])
 			if (handle < 0)
 				unix_die("opening tempfile");
 		}
-		std::vector<uint64_t> pnrs = parse_packetnrs(handle);
+		std::vector<uint64_t> pnrs = parse_packetnrs(handle, packets.size());
 		write_pcap(outfile, linktype, snaplen, packets, pnrs);
 		printf("\nall done\n\n");
 	}

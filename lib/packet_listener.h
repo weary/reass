@@ -21,6 +21,13 @@ public:
 	virtual void begin_capture(const std::string &name, int linktype, int snaplen)
 	{}
 
+	// called before reassembly, use for initialising packet-userdata
+	virtual void new_packet(packet_t *packet, uint64_t packetnr)
+	{
+		// note, do NOT release packet in here, will go to reassembly
+		// after return
+	}
+
 	// packet without known stream (ie, not tcp or udp)
 	virtual void accept(packet_t *packet)
 	{
