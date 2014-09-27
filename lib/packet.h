@@ -14,6 +14,9 @@
 #include "reass/free_list.h"
 #include "reass/config.h"
 
+// not really used here, but has to be included somewhere
+#include "reass/checkconfig.h"
+
 enum layer_type
 {
 	layer_ethernet, // ether_header
