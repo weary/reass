@@ -28,14 +28,21 @@ struct seq_nr_t
 	uint32_t d_val;
 };
 
-inline bool operator <(const seq_nr_t &l, const seq_nr_t &r)
+inline bool operator <(const seq_nr_t l, const seq_nr_t r)
 {
 	int32_t diff = l.d_val - r.d_val;
 	return diff < 0;
 }
 
-inline bool operator ==(const seq_nr_t &l, uint32_t r) { return l.d_val == r; }
-inline bool operator !=(const seq_nr_t &l, uint32_t r) { return l.d_val != r; }
+inline uint32_t distance(const seq_nr_t l, const seq_nr_t r)
+{
+	uint32_t max1 = l.d_val - r.d_val;
+	uint32_t max2 = r.d_val - l.d_val;
+	return std::min<uint32_t>(max1, max2);
+}
+
+inline bool operator ==(const seq_nr_t l, uint32_t r) { return l.d_val == r; }
+inline bool operator !=(const seq_nr_t l, uint32_t r) { return l.d_val != r; }
 
 std::ostream &operator <<(std::ostream &os, const seq_nr_t &s);
 
@@ -57,7 +64,7 @@ protected: // called from tcp_reassembler_t
 
 	void found_partner(tcp_stream_t *partner);
 
-	// return false if !is_reasonable_seq
+	// return false if !is_reasonable_seq or we don't trust sequence numbers yet
 	bool add(packet_t *packet, const layer_t *tcplay);
 
 	// returns timestamp when this stream(+partner) is timed-out
@@ -75,7 +82,6 @@ public:
 protected: // internal
 	void accept_packet(packet_t *p, const layer_t *tcplay);
 	void find_relyable_startseq(const tcphdr &hdr);
-	bool is_reasonable_seq(seq_nr_t seq);
 	void check_delayed(bool force = false);
 	void find_direction(packet_t *packet, const layer_t *tcplay);
 	void flush();

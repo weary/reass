@@ -281,3 +281,22 @@ BOOST_AUTO_TEST_CASE(missing_syn_have_synack)
 	BOOST_CHECK(compare(listener.d_out, reference));
 	BOOST_CHECK(compare(listener.d_loss, plossref));
 }
+
+struct no_partner_listener_t : packet_listener_t
+{
+	virtual void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream)
+	{
+		BOOST_CHECK(!stream->have_partner());
+	}
+};
+
+BOOST_AUTO_TEST_CASE(seq_ack_partnertest)
+{
+	// we had a bug about initiator/responder being combined even though sequence
+	// numbers indicated they were not
+
+	no_partner_listener_t listener;
+	pcap_reader_t reader(&listener);
+	reader.read_file("seq_ack_partnertest.pcap");
+	reader.flush();
+}

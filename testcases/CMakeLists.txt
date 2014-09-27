@@ -6,6 +6,7 @@ if(Boost_UNIT_TEST_FRAMEWORK_LIBRARY)
 	add_executable(unittest
 			test_refpcap.cpp
 			test_freelist.cpp
+			test_seqnr.cpp
 			testmain.cpp)
 
 	target_link_libraries(unittest ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})

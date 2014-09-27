@@ -80,6 +80,14 @@ std::ostream &operator <<(std::ostream &os, const timeval &tv)
 	return os;
 }
 
+static inline
+bool is_reasonable_seq(seq_nr_t seq1, seq_nr_t seq2)
+{
+	const uint32_t cutoff = 4*1024*1024; // 4MB
+
+	return distance(seq1, seq2) < cutoff;
+}
+
 uint64_t tcp_stream_t::timeout() const
 {
 	bool use_short = d_have_accepted_end;
@@ -201,7 +209,7 @@ bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 
 	const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
 
-	if (unlikely(!is_reasonable_seq(htonl(hdr.th_seq))))
+	if (unlikely(d_trust_seq && !is_reasonable_seq(d_next_seq, htonl(hdr.th_seq))))
 		return false; // quick port re-use, packet not part of this stream
 
 	if (!d_trust_seq) // check if we already have a starting packet
@@ -234,17 +242,6 @@ bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 	}
 
 	return true; // packet belonged to this stream
-}
-
-bool tcp_stream_t::is_reasonable_seq(seq_nr_t seq)
-{
-	if (!d_trust_seq) return true; // could be
-
-	const uint32_t cutoff = 4*1024*1024; // 4MB
-
-	return
-		seq_nr_t(d_next_seq.d_val - cutoff) < seq &&
-		seq < seq_nr_t(d_next_seq.d_val + cutoff);
 }
 
 // find out if this packet is initiator or responder. called from accept_packet, so partner should be set
@@ -402,7 +399,23 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 		pr->set_src_dst_from_packet(packet, true);
 		stream_set_t::iterator pi = d_streams.find(*pr);
 		if (pi != d_streams.end() && pi != ituple.first)
-			r->found_partner(&*pi);
+		{
+			tcp_stream_t *partner = &*pi;
+
+			// if we already trust sequence numbers and the other side happens to
+			// have acks they must be close
+			const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
+			bool seqs_are_close = true;
+
+			if (partner->d_smallest_ack != 0 && !is_reasonable_seq(
+						seq_nr_t(htonl(hdr.th_seq)), partner->d_smallest_ack))
+				seqs_are_close = false;
+			if (seqs_are_close && (hdr.th_flags & TH_ACK) && !is_reasonable_seq(
+						seq_nr_t(htonl(hdr.th_ack)), partner->d_next_seq))
+				seqs_are_close = false;
+			if (seqs_are_close)
+				r->found_partner(&*pi);
+		}
 	}
 	return ituple.first;
 }
