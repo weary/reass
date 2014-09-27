@@ -59,7 +59,7 @@ struct unknown_layer_t : public std::exception
 	virtual const char* what() const throw()
 	{
 		static char buf[256];
-		sprintf(buf, "unsupported protocol 0x%x in %s header", d_next, d_cur);
+		snprintf(buf, 256, "unsupported protocol 0x%x in %s header", d_next, d_cur);
 		return buf;
 	}
 

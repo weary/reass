@@ -21,7 +21,7 @@ BOOST_STATIC_ASSERT_MSG(sizeof(ip_address_t) == sizeof(sockaddr_in6), "structure
 std::ostream &operator <<(std::ostream &os, const seq_nr_t &s)
 {
 	char buf[5];
-	sprintf(buf, "%04x", s.d_val);
+	snprintf(buf, 5, "%04x", s.d_val);
 	os << buf;
 	return os;
 }
@@ -75,7 +75,7 @@ static timeval operator -(const timeval &l, const timeval &r)
 std::ostream &operator <<(std::ostream &os, const timeval &tv)
 {
 	char buf[128];
-	sprintf(buf, "%ld.%06ld", tv.tv_sec, tv.tv_usec);
+	snprintf(buf, 128, "%ld.%06ld", tv.tv_sec, tv.tv_usec);
 	os << buf;
 	return os;
 }

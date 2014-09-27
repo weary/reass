@@ -125,7 +125,7 @@ struct logical_link_layer_t : public unknown_layer_t
 	virtual const char* what() const throw()
 	{
 		static char buf[256];
-		sprintf(buf, "unsupported logical link layer 0x%x in %s header", d_next, d_cur);
+		snprintf(buf, 256, "unsupported logical link layer 0x%x in %s header", d_next, d_cur);
 		return buf;
 	}
 };
@@ -347,7 +347,7 @@ std::ostream &operator <<(std::ostream &os, const layer_t &l)
 				if (1)
 				{
 					char buf[256];
-					sprintf(buf, " seq=%08x ack=%08x", htonl(hdr.th_seq), htonl(hdr.th_ack));
+					snprintf(buf, 256, " seq=%08x ack=%08x", htonl(hdr.th_seq), htonl(hdr.th_ack));
 					os << buf;
 				}
 				if (1)
@@ -387,7 +387,7 @@ void packet_t::print(std::ostream &os) const
 	struct timeval ts = d_pckthdr.ts;
 	bpf_u_int32 len = d_pckthdr.len;
 	bpf_u_int32 caplen = d_pckthdr.caplen;
-	sprintf(buf, "[%d.%06d %4d",
+	snprintf(buf, 256, "[%d.%06d %4d",
 			(unsigned)ts.tv_sec, (unsigned)ts.tv_usec, caplen);
 	os << buf;
 	if (caplen != len)

@@ -11,7 +11,7 @@ std::string to_str(sha1 &hash)
 	unsigned int dig[5];
 	hash.get_digest(dig);
 	char buf[256];
-	sprintf(buf, "%08x %08x %08x %08x %08x", dig[0], dig[1], dig[2], dig[3], dig[4]);
+	snprintf(buf, 256, "%08x %08x %08x %08x %08x", dig[0], dig[1], dig[2], dig[3], dig[4]);
 	return buf;
 }
 
