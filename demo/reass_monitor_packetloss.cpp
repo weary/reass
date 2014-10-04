@@ -8,6 +8,7 @@
 #include <iostream>
 #include <openssl/sha.h>
 #include <boost/foreach.hpp>
+#include <boost/filesystem/convenience.hpp>
 
 class packet_listener_t;
 
@@ -74,9 +75,11 @@ public:
 
 void printhelp(const char *argv0)
 {
-	printf("\n%s will monitor connections and print every x seconds a statusline telling\n", basename(argv0));
+	std::string app = boost::filesystem::basename(argv0);
+
+	printf("\n%s will monitor connections and print every x seconds a statusline telling\n", app.c_str());
 	printf("the number of new tcp connections and the number of missing bytes from those streams\n\n");
-	printf("%s [--live <device>] [--bpf <bpf>] [--every <seconds>] [pcaps]\n", basename(argv0));
+	printf("%s [--live <device>] [--bpf <bpf>] [--every <seconds>] [pcaps]\n", app.c_str());
 }
 
 int main(int argc, char *argv[])

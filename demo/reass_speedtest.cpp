@@ -7,6 +7,7 @@
 #include <string.h>
 #include <iostream>
 #include <boost/foreach.hpp>
+#include <boost/filesystem/convenience.hpp>
 
 class my_packet_listener_t : public packet_listener_t
 {
@@ -20,7 +21,7 @@ class my_packet_listener_t : public packet_listener_t
 void printhelp(const char *argv0)
 {
 	printf("\nreassemble tcp streams and discard\n\n");
-	printf("%s [--live <device>] [--bpf <bpf>] [pcaps]\n", basename(argv0));
+	printf("%s [--live <device>] [--bpf <bpf>] [pcaps]\n", boost::filesystem::basename(argv0).c_str());
 }
 
 int main(int argc, char *argv[])
@@ -30,7 +31,7 @@ int main(int argc, char *argv[])
 	{
 		if (strcmp(argv[n], "-h")==0 or strcmp(argv[n], "--help") == 0)
 		{
-			printf("%s pcaps\n", basename(argv[0]));
+			printf("%s pcaps\n", boost::filesystem::basename(argv[0]).c_str());
 			return -1;
 		}
 	}

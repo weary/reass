@@ -2,10 +2,11 @@
 
 #include "reass/pcap_reader.h"
 #include "reass/pcap_writer.h"
-#include <boost/foreach.hpp>
-#include <boost/algorithm/string/trim.hpp>
-#include <boost/scope_exit.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/trim.hpp>
+#include <boost/filesystem/convenience.hpp>
+#include <boost/foreach.hpp>
+#include <boost/scope_exit.hpp>
 #include <inttypes.h>
 #include <stdexcept>
 #include <sys/mman.h>
@@ -158,14 +159,14 @@ void write_pcap(
 
 void printhelp(const char *argv0)
 {
-	const char *app = basename(argv0);
+	std::string app = boost::filesystem::basename(argv0);
 
 	printf("Usage:\n");
-	printf("  %s --interactive -o <output pcap> <input pcaps>\n", app);
+	printf("  %s --interactive -o <output pcap> <input pcaps>\n", app.c_str());
 	printf("\n  or\n\n");
-	printf("  %s --generate <genfile.txt> <input pcaps>\n", app);
+	printf("  %s --generate <genfile.txt> <input pcaps>\n", app.c_str());
 	printf("  (edit genfile.txt to your liking)\n");
-	printf("  %s --parse <genfile.txt> -o <output pcap> <input pcaps>\n", app);
+	printf("  %s --parse <genfile.txt> -o <output pcap> <input pcaps>\n", app.c_str());
 }
 
 int main(int argc, char *argv[])
@@ -250,7 +251,7 @@ int main(int argc, char *argv[])
 			writeline(handle, "# new pcap will be generated after you save-and-exit this editor\n");
 		else
 		{
-			cmdline = std::string(basename(argv[0])) + " " + boost::algorithm::join(positional, " ") + " -p " + orderfile + " -o <output>.pcap";
+			cmdline = boost::filesystem::basename(argv[0]) + " " + boost::algorithm::join(positional, " ") + " -p " + orderfile + " -o <output>.pcap";
 			writeline(handle, "# to generate a re-ordered pcap: " + cmdline + "\n");
 		}
 		write_packetlines(handle, packets);
