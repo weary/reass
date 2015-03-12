@@ -10,6 +10,7 @@ SET(SOURCES
 		packet_entrypoint.cpp
 		helpers/misc.cpp)
 SET(HEADERS
+		checkconfig.h
 		common_reassembler.h
 		common_reassembler.hpp
 		config.h
