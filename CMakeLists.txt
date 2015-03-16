@@ -57,4 +57,8 @@ execute_process(
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+# jenkins being stupid
+SET(CPACK_PACKAGE_NAME libreass-dev)
+SET(BUILD_TAG "${CPACK_PACKAGE_VERSION}")
+
 include(CPack)
