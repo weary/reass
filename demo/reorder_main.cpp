@@ -10,6 +10,8 @@
 #include <inttypes.h>
 #include <stdexcept>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 static void writeline(int handle, const std::string &line)
 {
@@ -232,9 +234,11 @@ int main(int argc, char *argv[])
 		{
 			char name[256];
 			::strcpy(name, "genfileXXXXXX");
+			mode_t old_umask = umask(~0600);
 			handle = ::mkstemp(name);
 			if (handle < 0)
 				unix_die("opening tempfile");
+			umask(old_umask);
 			::unlink(name);
 			orderfile = "/proc/" + to_str(getpid()) + "/fd/" + to_str(handle);
 		}
