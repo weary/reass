@@ -104,9 +104,10 @@ void pcap_reader_t::set_bpf(const std::string &bpf)
 		return;
 
 	// we don't specify the netmask, so filters for ipv4 broadcasts will fail
-	if (pcap_compile(d_pcap, &d_bpf, bpf.c_str(), true, PCAP_NETMASK_UNKNOWN) < 0)
+	bpf_program bpfprog;
+	if (pcap_compile(d_pcap, &bpfprog, bpf.c_str(), true, PCAP_NETMASK_UNKNOWN) < 0)
 		throw format_exception("Could not compile bpf filter '%s', %s", bpf.c_str(), pcap_geterr(d_pcap));
-	if (pcap_setfilter(d_pcap, &d_bpf) < 0)
+	if (pcap_setfilter(d_pcap, &bpfprog) < 0)
 		throw format_exception("Could not activate bpf filter '%s', %s", bpf.c_str(), pcap_geterr(d_pcap));
 }
 

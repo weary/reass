@@ -38,7 +38,6 @@ protected:
 	void set_bpf(const std::string &bpf);
 
 	pcap_t *d_pcap;
-	bpf_program d_bpf;
 };
 
 #endif // __REASS_PCAP_READER_H__
