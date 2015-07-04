@@ -121,8 +121,10 @@ int main(int argc, char *argv[])
 	my_packet_listener_t listener;
 	pcap_reader_t reader(&listener);
 	if (!live)
+	{
 		BOOST_FOREACH(const std::string &file, positional)
 			reader.read_file(file, filter);
+	}
 	else
 	{
 		std::string device = "any";
