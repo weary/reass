@@ -170,7 +170,7 @@ void tcp_stream_t::found_partner(packet_t *packet, tcp_stream_t *other)
 	set_partner(other);
 	other->set_partner(this);
 	if (other->have_delayed())
-		listener()->debug_packet(packet, "found partner, accepting delayed packets for other side");
+		listener()->debug_packet(packet, "found partner, accepting delayed packets for other side (if applicable)");
 	other->check_delayed();
 
 	// if the other side has a reasonable guess at our sequence numbers, use it
@@ -205,10 +205,43 @@ void tcp_stream_t::find_relyable_startseq(const tcphdr &hdr)
 	}
 }
 
+// check if the first delayed packet matches with this ack, if so, accept it as the first
+// called when our partner decides it can trust the sequence numbers
+bool tcp_stream_t::find_seq_from_ack(seq_nr_t smallest_ack)
+{
+	if (d_delayed.empty() || d_trust_seq)
+		return false;
+
+	packet_t *p = d_delayed.begin()->second;
+	const layer_t *tcplay = find_top_nondata_layer(p);
+	assert(tcplay && tcplay->type() == layer_tcp);
+
+	const tcphdr *hdr =
+		reinterpret_cast<const tcphdr *>(tcplay->data());
+
+	seq_nr_t p_seq(htonl(hdr->th_seq));
+
+	// if packet has content we expect the ack to include this, otherwise
+	// expected ack is the same as the sequence number
+	// (we ignore the case where packet has syn/fin flags here, as we will have
+	// valid sequence numbers in that case anyway)
+	seq_nr_t ack_for_p = p_seq;
+	const layer_t *nextlayer = p->next(tcplay);
+	if (nextlayer)
+		ack_for_p.d_val += nextlayer->size();
+
+	if (ack_for_p == smallest_ack)
+	{
+		// exact match -> accept
+		d_next_seq = p_seq;
+		d_trust_seq = true;
+	}
+	return d_trust_seq;
+}
+
 // add a packet, will either queue it in d_delayed, or accept it
 bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 {
-	//printf("adding packet. next_seq = %08x\n", d_next_seq.d_val);
 	assert(tcplay);
 
 	if (packet->ts() > d_highest_ts)
@@ -222,6 +255,15 @@ bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 		return false; // quick port re-use, packet not part of this stream
 	}
 
+	if (!is_partner_set() && hdr.th_flags & TH_ACK)
+	{
+		seq_nr_t ack(htonl(hdr.th_ack));
+		if (d_smallest_ack == 0 || ack < d_smallest_ack)
+			d_smallest_ack = ack;
+	}
+
+	bool check_partner_delayed = false;
+
 	if (!d_trust_seq)
 	{	// check if we already have a starting packet
 		find_relyable_startseq(hdr);
@@ -229,13 +271,13 @@ bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 			listener()->debug_packet(packet,
 					"accepted sequence number %08x as start of stream",
 					d_next_seq.d_val);
-	}
-
-	if (!is_partner_set())
-	{
-		seq_nr_t ack(htonl(hdr.th_ack));
-		if (d_smallest_ack == 0 || ack < d_smallest_ack)
-			d_smallest_ack = ack;
+		if (have_partner() && d_smallest_ack != 0)
+		{
+			check_partner_delayed = partner()->find_seq_from_ack(d_smallest_ack);
+			if (check_partner_delayed)
+				listener()->debug_packet(packet,
+						"our ack's matched with partner's seq. will accept partner's delayed packets");
+		}
 	}
 
 	seq_nr_t seq(htonl(hdr.th_seq));
@@ -261,6 +303,13 @@ bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 		else
 			listener()->debug_packet(packet, "delaying packet because we don't have a partner yet");
 		d_delayed.insert(delayed_t::value_type(seq, packet));
+	}
+
+	// we have reason to believe our partner can continue now
+	if (check_partner_delayed)
+	{
+		listener()->debug_packet(partner()->d_delayed.begin()->second, "accepting partner because we decided so earlier");
+		partner()->check_delayed(false);
 	}
 
 	// fallback, don't queue too much
@@ -363,7 +412,7 @@ void tcp_stream_t::check_delayed(bool force /* force at least one packet out */)
 
 	delayed_t::iterator i = d_delayed.begin();
 	seq_nr_t seq = i->first;
-	if (force || seq <= d_next_seq)
+	if (force || (d_trust_seq && seq <= d_next_seq))
 	{
 		packet_t *packet = i->second;
 		d_delayed.erase(i);

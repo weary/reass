@@ -43,6 +43,7 @@ inline uint32_t distance(const seq_nr_t l, const seq_nr_t r)
 
 inline bool operator ==(const seq_nr_t l, uint32_t r) { return l.d_val == r; }
 inline bool operator !=(const seq_nr_t l, uint32_t r) { return l.d_val != r; }
+inline bool operator ==(const seq_nr_t l, seq_nr_t r) { return l.d_val == r.d_val; }
 
 std::ostream &operator <<(std::ostream &os, const seq_nr_t &s);
 
@@ -82,6 +83,7 @@ public:
 protected: // internal
 	void accept_packet(packet_t *p, const layer_t *tcplay);
 	void find_relyable_startseq(const tcphdr &hdr);
+	bool find_seq_from_ack(seq_nr_t ack);
 	void check_delayed(bool force = false);
 	bool have_delayed() const { return !d_delayed.empty(); }
 	void find_direction(packet_t *packet, const layer_t *tcplay);
