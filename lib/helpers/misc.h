@@ -12,7 +12,7 @@
 #  define BOOST_STATIC_ASSERT_MSG(a, m) BOOST_STATIC_ASSERT(a)
 #endif
 
-#define PRINTFCHECK(FMT,ARGS) __attribute__ ((format(printf, FMT, ARGS)));
+#define PRINTFCHECK(FMT,ARGS) __attribute__ ((format(printf, FMT, ARGS)))
 
 namespace {
 template<typename T, typename S>

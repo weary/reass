@@ -160,7 +160,7 @@ void tcp_stream_t::set_src_dst_from_packet(const packet_t *packet, bool swap /* 
 	}
 }
 
-void tcp_stream_t::found_partner(tcp_stream_t *other)
+void tcp_stream_t::found_partner(packet_t *packet, tcp_stream_t *other)
 {
 	assert(other != this);
 	if (other->is_partner_set())
@@ -169,12 +169,19 @@ void tcp_stream_t::found_partner(tcp_stream_t *other)
 	assert(!is_partner_set() && !other->is_partner_set());
 	set_partner(other);
 	other->set_partner(this);
+	if (other->have_delayed())
+		listener()->debug_packet(packet, "found partner, accepting delayed packets for other side");
 	other->check_delayed();
 
 	// if the other side has a reasonable guess at our sequence numbers, use it
 	if (!d_trust_seq && other->d_smallest_ack != 0 &&
 			(d_next_seq == 0 || d_next_seq < other->d_smallest_ack))
+	{
 		d_next_seq = other->d_smallest_ack;
+		if (other->d_trust_seq)
+			listener()->debug_packet(packet, "found partner with reliable sequence number. "
+					"expecting seq %08x now", d_next_seq.d_val);
+	}
 }
 
 
@@ -210,10 +217,19 @@ bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 	const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
 
 	if (unlikely(d_trust_seq && !is_reasonable_seq(d_next_seq, htonl(hdr.th_seq))))
+	{
+		listener()->debug_packet(packet, "unreasonable large offset in sequence numbers. quick port re-use");
 		return false; // quick port re-use, packet not part of this stream
+	}
 
-	if (!d_trust_seq) // check if we already have a starting packet
+	if (!d_trust_seq)
+	{	// check if we already have a starting packet
 		find_relyable_startseq(hdr);
+		if (d_trust_seq && have_delayed())
+			listener()->debug_packet(packet,
+					"accepted sequence number %08x as start of stream",
+					d_next_seq.d_val);
+	}
 
 	if (!is_partner_set())
 	{
@@ -229,14 +245,30 @@ bool tcp_stream_t::add(packet_t *packet, const layer_t *tcplay)
 		if (seq <= d_next_seq)
 			accept_packet(packet, tcplay);
 		else
+		{
+			listener()->debug_packet(packet, "delaying packet because it has sequence "
+					"number in the future (got %08x, expected %08x)",
+					seq.d_val, d_next_seq.d_val);
 			d_delayed.insert(delayed_t::value_type(seq, packet));
+		}
 	}
 	else
+	{
+		if (is_partner_set())
+			listener()->debug_packet(packet, "delaying packet because we don't trust "
+					"sequence numbers yet (got %08x, current guess %08x)",
+					seq.d_val, d_next_seq.d_val);
+		else
+			listener()->debug_packet(packet, "delaying packet because we don't have a partner yet");
 		d_delayed.insert(delayed_t::value_type(seq, packet));
+	}
 
 	// fallback, don't queue too much
 	if (d_delayed.size() > MAX_DELAYED_PACKETS)
 	{
+		if (!d_trust_seq)
+			listener()->debug_packet(packet, "unable to find reasonable starting sequence, "
+					"forcing first packet");
 		d_trust_seq = true; // if this wasn't set yet, it was seriously screwed up
 		check_delayed(true);
 	}
@@ -291,7 +323,8 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 	{ // we have content
 		if (overlap > 0)
 		{
-			//printf("overlap = %d, psize = %ld\n", overlap, psize);
+			listener()->debug_packet(packet, "packet has %d bytes overlap out of %zu bytes total",
+					overlap, psize);
 			if ((uint32_t)overlap > psize)
 				packet->add_layer(layer_data, next->end(), next->end());
 			else
@@ -325,7 +358,7 @@ void tcp_stream_t::check_delayed(bool force /* force at least one packet out */)
 			return; // not forced, and still looking for a partner -> do nothing
 	}
 
-	if(d_delayed.empty())
+	if(!have_delayed())
 		return;
 
 	delayed_t::iterator i = d_delayed.begin();
@@ -336,6 +369,10 @@ void tcp_stream_t::check_delayed(bool force /* force at least one packet out */)
 		d_delayed.erase(i);
 		const layer_t *tcplay = find_top_nondata_layer(packet);
 		assert(tcplay && tcplay->type() == layer_tcp);
+		if (seq <= d_next_seq)
+			listener()->debug_packet(packet, "accepting delayed packet because it fits now");
+		else
+			listener()->debug_packet(packet, "accepting delayed packet because it is forced");
 		accept_packet(packet, tcplay);
 	}
 }
@@ -414,16 +451,26 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 						seq_nr_t(htonl(hdr.th_ack)), partner->d_next_seq))
 				seqs_are_close = false;
 			if (seqs_are_close)
-				r->found_partner(&*pi);
+				r->found_partner(packet, &*pi);
+			else
+				d_listener->debug_packet(packet, "potential partner found, but sequence numbers too far apart");
 		}
 	}
 	return ituple.first;
 }
 
+#ifdef DEBUG
+uint64_t tcp_reassembler_t::set_now(uint64_t now)
+#else
 void tcp_reassembler_t::set_now(uint64_t now)
+#endif
 {
 	tcp_timeouts_t::streamlist_t timeouts;
 	d_timeouts.set_time(now, timeouts); // remove all streams before 'now' from 'd_timeouts' and return in 'timeouts'
+
+#ifdef DEBUG
+	uint64_t nr_closed = 0;
+#endif
 
 	// close all streams with timeouts. list should contain all initiator/responder pairs
 	while (!timeouts.empty())
@@ -431,8 +478,15 @@ void tcp_reassembler_t::set_now(uint64_t now)
 		tcp_stream_t *s = &timeouts.front();
 		timeouts.pop_front();
 
+#ifdef DEBUG
+		if (!s->closed())
+			++nr_closed;
+#endif
 		close_stream(s);
 	}
+#ifdef DEBUG
+	return nr_closed;
+#endif
 }
 
 void tcp_reassembler_t::close_stream(tcp_stream_t *stream)

@@ -67,7 +67,17 @@ void packet_entrypoint_t::handle_packet(const struct pcap_pkthdr *hdr, const u_c
 		d_listener->new_packet(packet, packetnr);
 
 		if (d_tcp_reassembler)
+		{
+#ifdef DEBUG
+			uint64_t streamsclosed =
+#endif
 			d_tcp_reassembler->set_now(packet->ts().tv_sec);
+#ifdef DEBUG
+			if (streamsclosed > 0)
+				d_listener->debug_packet(packet, "%ld tcpstreams timed out due to timestamp this packet",
+						streamsclosed);
+#endif
+		}
 		if (d_udp_reassembler)
 			d_udp_reassembler->set_now(packet->ts().tv_sec);
 

@@ -6,9 +6,10 @@
 #include <string>
 #include <string.h>
 #include <iostream>
-#include <openssl/sha.h>
+#include <stdarg.h>
 #include <boost/foreach.hpp>
 #include <boost/filesystem/convenience.hpp>
+
 
 class packet_listener_t;
 
@@ -62,12 +63,20 @@ public:
 
 	void begin_capture(const std::string &name, int linktype, int snaplen)
 	{
-		printf("new capture '%s'\n", name.c_str());
+		fprintf(stderr, "new capture '%s'\n", name.c_str());
+	}
+
+	void new_packet(packet_t *packet, uint64_t packetnr)
+	{
+		++packetnr; // wireshark's packetnr's are 1-based
+		packet->set_userdata((void *)packetnr);
+		//debug_packet(packet, "start parsing");
 	}
 
 	void accept_tcp(packet_t *packet, int packetloss, tcp_stream_t *stream)
 	{
-		printf("have packet\n");
+		if (packet)
+			debug_packet(packet, "accepted packet");
 		stream_t *user = reinterpret_cast<stream_t *>(stream->userdata());
 		if (!user)
 		{
@@ -82,8 +91,29 @@ public:
 
 	void accept_error(packet_t *packet, const char *error)
 	{
+		packet->set_userdata(NULL); // 'new_packet' not called
+		debug_packet(packet, "error: %s", error);
 		throw format_exception("error parsing packet '%s': %s", to_str(*packet).c_str(), error);
 	}
+
+	void debug_packet(packet_t *packet, const char *fmt, ...)
+	{
+		assert(packet);
+
+		va_list ap;
+		char buf[256];
+
+		va_start(ap, fmt);
+		vsnprintf(buf, 256, fmt, ap);
+		va_end(ap);
+
+		uint64_t packetnr = (uint64_t)packet->userdata();
+		struct timeval ts = packet->ts();
+
+		fprintf(stderr, "%4ld %6d.%06d %s\n", packetnr, (unsigned)ts.tv_sec,
+				(unsigned)ts.tv_usec, buf);
+	}
+
 };
 
 void printhelp(const char *argv0)

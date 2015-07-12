@@ -62,7 +62,7 @@ protected: // called from tcp_reassembler_t
 	void set_src_dst_from_packet(const packet_t *packet, bool swap); // constructor(1/2)
 	void init(packet_listener_t *listener); // constructor(2/2), will not touch src/dst
 
-	void found_partner(tcp_stream_t *partner);
+	void found_partner(packet_t *packet, tcp_stream_t *partner);
 
 	// return false if !is_reasonable_seq or we don't trust sequence numbers yet
 	bool add(packet_t *packet, const layer_t *tcplay);
@@ -83,6 +83,7 @@ protected: // internal
 	void accept_packet(packet_t *p, const layer_t *tcplay);
 	void find_relyable_startseq(const tcphdr &hdr);
 	void check_delayed(bool force = false);
+	bool have_delayed() const { return !d_delayed.empty(); }
 	void find_direction(packet_t *packet, const layer_t *tcplay);
 	void flush();
 
@@ -123,8 +124,13 @@ struct tcp_reassembler_t :
 	void set_listener(packet_listener_t *listener) { d_listener = listener; }
 
 	// advance current time to specified nr-of-seconds since epoch (1970)
-	// will not move time backwards, checks timeouts
+	// will not move time backwards, checks timeouts.
+	// in debug returns number of streams closed due to timeout
+#ifdef DEBUG
+	uint64_t set_now(uint64_t now);
+#else
 	void set_now(uint64_t now);
+#endif
 	uint64_t now() const { return d_timeouts.now(); }
 
 	void flush();

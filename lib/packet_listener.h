@@ -7,6 +7,7 @@
 #define __REASS_PACKET_LISTENER_H__
 
 #include "reass/packet.h"
+#include "reass/helpers/misc.h"
 
 struct tcp_stream_t;
 struct udp_stream_t;
@@ -28,7 +29,7 @@ public:
 		// after return
 	}
 
-	// packet without known stream (ie, not tcp or udp)
+	// packet without known stream (ie, not tcp or udp, or reassembly disabled)
 	virtual void accept(packet_t *packet)
 	{
 		packet->release(); // done with packet
@@ -53,6 +54,22 @@ public:
 	virtual void accept_error(packet_t *packet, const char *error)
 	{
 		packet->release(); // done with packet
+	}
+
+	// called with extra information about where the packet is in the
+	// engine. Make sure to also override all other methods in this
+	// class, debug_packet is only called for events not reported by
+	// other functions.
+	// compiler can optimize function away in release builds (not virtual)
+#ifdef DEBUG
+	virtual
+#else
+	inline
+#endif
+		void debug_packet(packet_t *packet, const char *fmt, ...)
+		PRINTFCHECK(3, 4)
+	{
+		// do NOT release here
 	}
 };
 
