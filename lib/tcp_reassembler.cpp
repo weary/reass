@@ -124,6 +124,7 @@ void tcp_stream_t::init(packet_listener_t *listener)
 	d_smallest_ack = 0;
 	d_highest_ts.tv_sec = 0; d_highest_ts.tv_usec = 0;
 	d_have_accepted_end = false;
+	d_have_sent_end = false;
 	d_direction = direction_unknown;
 	assert(d_delayed.empty()); // leftover packets would give funny results :)
 }
@@ -353,9 +354,6 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 	if (d_direction == direction_unknown)
 		find_direction(packet, tcplay);
 
-	if (hdr.th_flags & (TH_FIN|TH_RST))
-		d_have_accepted_end = true;
-
 	size_t psize = 0;
 	if (next) psize = next->size();
 	assert(!next || (packet->next(next) == NULL && next->type() == layer_data)); // assume we are the last
@@ -392,6 +390,16 @@ void tcp_stream_t::accept_packet(packet_t *packet, const layer_t *tcplay)
 		d_next_seq = seq;
 
 	listener()->accept_tcp(packet, packetloss, this);
+
+	if (hdr.th_flags & (TH_FIN|TH_RST))
+	{
+		d_have_accepted_end = true;
+		if (!d_have_sent_end)
+		{
+			listener()->end_of_stream(this);
+			d_have_sent_end = true;
+		}
+	}
 
 	check_delayed();
 }

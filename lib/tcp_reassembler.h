@@ -93,6 +93,7 @@ protected: // internal
 	seq_nr_t d_next_seq;
 	seq_nr_t d_smallest_ack; // used to detect packet loss in first packets
 	bool d_have_accepted_end;
+	bool d_have_sent_end;
 
 	enum direction_t { direction_unknown, direction_initiator, direction_responder };
 	direction_t d_direction;
