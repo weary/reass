@@ -56,6 +56,11 @@ public:
 		packet->release(); // done with packet
 	}
 
+	// saw a fin or rst in a tcp stream, called at most once per stream
+	virtual void end_of_stream(tcp_stream_t *stream)
+	{
+	}
+
 	// called with extra information about where the packet is in the
 	// engine. Make sure to also override all other methods in this
 	// class, debug_packet is only called for events not reported by

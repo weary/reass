@@ -20,7 +20,7 @@ ENDIF()
 add_definitions(-Wall)
 #add_definitions(-std=gnu++0x)
 add_definitions(-DBOOST_TEST_DYN_LINK)
-add_definitions(-march=native)
+add_definitions(-march=core2 -mtune=core2)
 
 if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb3")
@@ -56,5 +56,9 @@ execute_process(
 	OUTPUT_VARIABLE CPACK_PACKAGE_VERSION
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+
+# jenkins being stupid
+SET(CPACK_PACKAGE_NAME libreass-dev)
+SET(BUILD_TAG "${CPACK_PACKAGE_VERSION}")
 
 include(CPack)
