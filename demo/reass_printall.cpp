@@ -40,14 +40,14 @@ struct stream_t
 				if (i == std::string::npos)
 					break;
 
-				printf("%s: %s\n", d_prefix.c_str(), d_data.substr(0, i).c_str());
+				std::cout << d_prefix <<": " << d_data.substr(0, i) << std::endl;
 				d_data = d_data.substr(i+1);
 			}
 		}
 		else
 		{
 			if (!d_data.empty())
-				printf("%s: %s\n", d_prefix.c_str(), d_data.c_str());
+				std::cout << d_prefix <<": " << d_data.substr(0, i) << std::endl;
 		}
 	}
 
