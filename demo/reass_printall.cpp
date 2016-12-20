@@ -36,7 +36,7 @@ struct stream_t
 			// find eol and print
 			while (1)
 			{
-				i = d_data.find('\n');
+				std::string::size_type i = d_data.find('\n');
 				if (i == std::string::npos)
 					break;
 
@@ -47,7 +47,7 @@ struct stream_t
 		else
 		{
 			if (!d_data.empty())
-				std::cout << d_prefix <<": " << d_data.substr(0, i) << std::endl;
+			        std::cout << d_prefix <<": " << d_data << std::endl;
 		}
 	}
 
