@@ -53,8 +53,6 @@ struct stream_t
 
 protected:
 	std::string d_prefix, d_data;
-	std::string::size_type i;
-  
 };
 
 class my_packet_listener_t : public packet_listener_t
