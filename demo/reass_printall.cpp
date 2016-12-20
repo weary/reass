@@ -47,7 +47,7 @@ struct stream_t
 		else
 		{
 			if (!d_data.empty())
-				std::cout << d_prefix <<": " << d_data.substr(0, i) << std::endl;
+			        std::cout << d_prefix <<": " << d_data << std::endl;
 		}
 	}
 
