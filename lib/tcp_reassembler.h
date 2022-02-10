@@ -137,6 +137,8 @@ struct tcp_reassembler_t :
 
 	void flush();
 protected:
+	tcp_stream_t *find_opposite_stream(const packet_t *packet);
+
 	packet_listener_t *d_listener;
 
 	typedef boost::intrusive::unordered_set<

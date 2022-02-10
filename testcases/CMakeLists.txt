@@ -7,6 +7,7 @@ if(Boost_UNIT_TEST_FRAMEWORK_LIBRARY)
 			test_refpcap.cpp
 			test_freelist.cpp
 			test_seqnr.cpp
+			test_half_open_connection.cpp
 			testmain.cpp)
 
 	target_link_libraries(unittest ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
