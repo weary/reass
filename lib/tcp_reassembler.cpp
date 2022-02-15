@@ -460,6 +460,21 @@ tcp_reassembler_t::~tcp_reassembler_t()
 	flush();
 }
 
+
+tcp_stream_t *tcp_reassembler_t::find_opposite_stream(const packet_t *packet)
+{
+	tcp_stream_t *const stream_search_key = claim();
+	auto_release_t<tcp_stream_t> releaser(stream_search_key);
+
+	stream_search_key->set_src_dst_from_packet(packet, true);
+	const tcp_reassembler_t::stream_set_t::iterator found_partner_iterator = d_streams.find(*stream_search_key);
+	if (found_partner_iterator != d_streams.end())
+		return &*found_partner_iterator;
+
+	return NULL;
+}
+
+
 // will check for an existing stream for the packet, or create a new one if it did not exist
 // when creating a new stream, checks for existing partner stream
 tcp_reassembler_t::stream_set_t::iterator
@@ -478,16 +493,9 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 		r->init(d_listener);
 		releaser.do_not_release();
 
-		// find partner
-		tcp_stream_t *pr = claim();
-		auto_release_t<tcp_stream_t> releaser(pr);
-
-		pr->set_src_dst_from_packet(packet, true);
-		stream_set_t::iterator pi = d_streams.find(*pr);
-		if (pi != d_streams.end() && pi != ituple.first)
+		tcp_stream_t *const partner = find_opposite_stream(packet);
+		if (partner && partner != &*ituple.first)
 		{
-			tcp_stream_t *partner = &*pi;
-
 			// if we already trust sequence numbers and the other side happens to
 			// have acks they must be close
 			const tcphdr &hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
@@ -500,7 +508,7 @@ tcp_reassembler_t::find_or_create_stream(packet_t *packet, const layer_t *tcplay
 						seq_nr_t(htonl(hdr.th_ack)), partner->d_next_seq))
 				seqs_are_close = false;
 			if (seqs_are_close)
-				r->found_partner(packet, &*pi);
+				r->found_partner(packet, partner);
 			else
 				d_listener->debug_packet(packet, "potential partner found, but sequence numbers too far apart");
 		}
@@ -556,6 +564,12 @@ void tcp_reassembler_t::process(packet_t *packet)
 	stream_set_t::iterator it = find_or_create_stream(packet, tcplay);
 	tcp_stream_t *partner = (it->have_partner() ? it->partner() : NULL);
 
+	// We read out the RST flag and opposite_stream early, because 'packet' is likely released
+	// in the call to add() below.
+	const tcphdr &tcp_hdr = reinterpret_cast<const tcphdr &>(*tcplay->data());
+	const bool reset_seen = tcp_hdr.th_flags & TH_RST;
+	tcp_stream_t *const opposite_stream = find_opposite_stream(packet);
+
 	// returns false if packet probably does not belong to stream (quick port reuse)
 	bool accepted_packet = it->add(packet, tcplay);
 
@@ -571,6 +585,18 @@ void tcp_reassembler_t::process(packet_t *packet)
 	// timeouts
 	uint64_t to = it->timeout();
 	d_timeouts.set_timeout(to, &*it, partner);
+
+	if (reset_seen)
+	{
+		// RFC-1122 4.2.2.13 case 2: the connection state should be immediately discarded when one or more RST
+		// segments has been transmitted. We release this stream object and its opposite regardless of whether
+		// it was successfully partnered before.
+		// Note that setting a timeout isn't enough, since clients are allowed to immediately attempt to re-open
+		// the connection. This is expected behaviour if a one-sided connection is detected. (RFC-793 3.4)
+		close_stream(&*it);
+		if (opposite_stream != NULL)
+			close_stream(opposite_stream);
+	}
 }
 
 void tcp_reassembler_t::flush()
